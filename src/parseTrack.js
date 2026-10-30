@@ -1,5 +1,6 @@
-// Convierte el texto de un archivo GPX o KML en una lista de puntos:
-// [{ lat, lon, ele }]  (ele puede ser null si el archivo no trae altura)
+// Convierte el texto de un archivo GPX o KML en:
+// { points: [{ lat, lon, ele }], date }
+// (ele puede ser null si el archivo no trae altura; date, si no trae fecha)
 
 export function parseTrack(text, fileName) {
   const xml = new DOMParser().parseFromString(text, "application/xml");
@@ -14,7 +15,16 @@ export function parseTrack(text, fileName) {
   if (points.length < 2) {
     throw new Error("No he encontrado una ruta (hacen falta al menos 2 puntos).");
   }
-  return points;
+  return { points, date: findDate(xml) };
+}
+
+// Primera fecha que aparezca en el archivo: <time> en GPX, <when> en KML.
+// Devuelve "AAAA-MM-DD" o null.
+function findDate(xml) {
+  const node =
+    xml.getElementsByTagNameNS("*", "time")[0] ?? xml.getElementsByTagNameNS("*", "when")[0];
+  const date = node ? new Date(node.textContent.trim()) : null;
+  return date && !isNaN(date) ? date.toISOString().slice(0, 10) : null;
 }
 
 function parseGpx(xml) {

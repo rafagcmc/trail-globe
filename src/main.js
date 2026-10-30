@@ -9,6 +9,7 @@ setWorkerUrl(workerUrl);
 import "./style.css";
 import { parseTrack } from "./parseTrack.js";
 import { computeStats } from "./stats.js";
+import { saveRoute, loadRoutes, deleteRoute } from "./storage.js";
 
 // --- Mapa ---
 // Estilo vectorial de OpenFreeMap (gratis, sin clave). El mapa llega como
@@ -103,7 +104,8 @@ map.on("load", () => {
 });
 
 // --- Rutas ---
-const routes = []; // [{ name, points, bounds }]
+// Cada ruta: { id, name, date, points }. Se guardan en el navegador (storage.js).
+let routes = [];
 
 function emptyCollection() {
   return { type: "FeatureCollection", features: [] };
@@ -129,51 +131,100 @@ function refreshMap() {
   });
 }
 
+function boundsOf(points) {
+  // Rectángulo que contiene toda la ruta, para encuadrarla con la cámara
+  const bounds = new LngLatBounds();
+  for (const p of points) bounds.extend([p.lon, p.lat]);
+  return bounds;
+}
+
 function flyToRoute(route) {
-  map.fitBounds(route.bounds, { padding: 80, pitch: 50, duration: 2500 });
+  map.fitBounds(boundsOf(route.points), { padding: 80, pitch: 50, duration: 2500 });
 }
 
 const fileInput = document.getElementById("fileInput");
 const routeList = document.getElementById("routeList");
 const errorBox = document.getElementById("error");
 
+// Pinta la lista del panel: más recientes arriba, las que no tienen fecha al final
+function renderList() {
+  const sorted = [...routes].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  routeList.replaceChildren(...sorted.map(createListItem));
+}
+
+function createListItem(route) {
+  const stats = computeStats(route.points);
+  const gainText = stats.gainM === null ? "sin datos de altura" : `+${stats.gainM} m`;
+  const dateText = route.date
+    ? new Date(route.date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
+    : "sin fecha";
+
+  const item = document.createElement("li");
+  item.innerHTML = `
+    <div class="info">
+      <strong></strong>
+      <span>${dateText} · ${stats.distanceKm.toFixed(1)} km · ${gainText}</span>
+    </div>
+    <button class="delete" title="Borrar ruta">×</button>`;
+  item.querySelector("strong").textContent = route.name; // textContent evita inyectar HTML
+
+  item.querySelector(".info").addEventListener("click", () => flyToRoute(route));
+  item.querySelector(".delete").addEventListener("click", () => removeRoute(route));
+  return item;
+}
+
+async function removeRoute(route) {
+  if (!confirm(`¿Borrar "${route.name}"?`)) return;
+  await deleteRoute(route.id);
+  routes = routes.filter((r) => r.id !== route.id);
+  refreshMap();
+  renderList();
+}
+
 // Se ejecuta cada vez que eliges uno o varios archivos
 fileInput.addEventListener("change", async () => {
   errorBox.textContent = "";
+  let lastAdded = null;
 
   for (const file of fileInput.files) {
     try {
       // Leer un archivo tarda un poco: "await" espera a que termine
       // sin bloquear la página.
       const text = await file.text();
-      const points = parseTrack(text, file.name);
-      await mapReady;
-      addRoute(file.name.replace(/\.(gpx|kml)$/i, ""), points);
+      const { points, date } = parseTrack(text, file.name);
+      const route = {
+        id: crypto.randomUUID(), // identificador único generado por el navegador
+        name: file.name.replace(/\.(gpx|kml)$/i, ""),
+        date,
+        points,
+      };
+      await saveRoute(route);
+      routes.push(route);
+      lastAdded = route;
     } catch (err) {
       errorBox.textContent = `${file.name}: ${err.message}`;
     }
   }
 
   fileInput.value = ""; // permite volver a subir el mismo archivo
+  if (lastAdded) {
+    await mapReady;
+    refreshMap();
+    renderList();
+    flyToRoute(lastAdded);
+  }
 });
 
-function addRoute(name, points) {
-  // Rectángulo que contiene toda la ruta, para encuadrarla con la cámara
-  const bounds = new LngLatBounds();
-  for (const p of points) bounds.extend([p.lon, p.lat]);
-
-  const route = { name, points, bounds };
-  routes.push(route);
+// Al abrir la página: recuperamos las rutas guardadas y las pintamos
+async function init() {
+  try {
+    routes = await loadRoutes();
+  } catch (err) {
+    errorBox.textContent = `No he podido leer las rutas guardadas: ${err.message}`;
+  }
+  await mapReady;
   refreshMap();
-
-  const stats = computeStats(points);
-  const gainText = stats.gainM === null ? "sin datos de altura" : `+${stats.gainM} m`;
-
-  const item = document.createElement("li");
-  item.innerHTML = `<strong></strong><span>${stats.distanceKm.toFixed(1)} km · ${gainText}</span>`;
-  item.querySelector("strong").textContent = name; // textContent evita inyectar HTML
-  item.addEventListener("click", () => flyToRoute(route));
-  routeList.appendChild(item);
-
-  flyToRoute(route);
+  renderList();
 }
+
+init();

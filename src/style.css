@@ -63,3 +63,39 @@ html, body, #map {
   color: #aaa;
   font-size: 12px;
 }
+
+#routeList li {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+#routeList .info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+#routeList strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#routeList .delete {
+  border: none;
+  background: none;
+  color: #888;
+  font-size: 18px;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+#routeList li:hover .delete {
+  visibility: visible;
+}
+
+#routeList .delete:hover {
+  color: #ff8a80;
+}

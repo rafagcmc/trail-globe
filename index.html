@@ -7,6 +7,17 @@
   </head>
   <body>
     <div id="cesiumContainer"></div>
+
+    <aside id="panel">
+      <h1>Trail Globe</h1>
+      <label class="button">
+        + Add route
+        <input id="fileInput" type="file" accept=".gpx,.kml" multiple hidden />
+      </label>
+      <p id="error"></p>
+      <ul id="routeList"></ul>
+    </aside>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

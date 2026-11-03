@@ -14,7 +14,9 @@ import {
 import { resizeImage } from "./photos.js";
 import { activityOf } from "./activities.js";
 import { fmtKm, fmtM, fmtDuration } from "./format.js";
-import { renderHome, renderFolder, renderDetail } from "./ui.js";
+import { renderHome, renderFolder } from "./ui.js";
+import { renderDetail } from "./detail.js";
+import { detectStageStarts, cleanStarts, dayRanges, cumulativeKm, indexAtKm } from "./stages.js";
 import { openRouteDialog } from "./routeDialog.js";
 import { pickRoutes } from "./routePicker.js";
 
@@ -70,6 +72,13 @@ map.on("load", () => {
     filter: ["==", ["get", "id"], ""],
     paint: { "line-color": ["get", "color"], "line-width": 7 } });
 
+  // Rutas de varios días: el día elegido, los puntos donde dormiste y el cursor del editor
+  map.addSource("stage", { type: "geojson", data: emptyCollection() });
+  map.addSource("overnights", { type: "geojson", data: emptyCollection() });
+  map.addSource("cursor", { type: "geojson", data: emptyCollection() });
+  map.addLayer({ id: "stage-line", type: "line", source: "stage", layout: lineLayout,
+    paint: { "line-color": ["get", "color"], "line-width": 8 } });
+
   // Chincheta en el inicio de cada ruta: visible aunque mires el globo entero
   map.addLayer({
     id: "starts",
@@ -82,6 +91,15 @@ map.on("load", () => {
       "circle-stroke-width": 2,
     },
   });
+
+  map.addLayer({ id: "overnights", type: "circle", source: "overnights",
+    paint: { "circle-radius": 7, "circle-color": "#ffffff", "circle-stroke-color": "#1b1f1d", "circle-stroke-width": 2.5 } });
+  map.addLayer({ id: "overnight-labels", type: "symbol", source: "overnights",
+    layout: { "text-field": ["get", "label"], "text-size": 12, "text-offset": [0, 1.4], "text-anchor": "top",
+      "text-font": ["Noto Sans Bold"] },
+    paint: { "text-color": "#1b1f1d", "text-halo-color": "#ffffff", "text-halo-width": 1.5 } });
+  map.addLayer({ id: "cursor", type: "circle", source: "cursor",
+    paint: { "circle-radius": 6, "circle-color": "#e8890c", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
 
   // Pulsar una chincheta abre su ruta
   map.on("click", "starts", (e) => {
@@ -140,11 +158,43 @@ function refreshMap() {
     ),
   });
   map.setFilter("route-selected", ["==", ["get", "id"], selectedId ?? ""]);
+  if (!selected) showStageOnMap(null);
 }
 
-function flyToRoute(route) {
+// Dibuja en el mapa las etapas de una ruta: el día elegido resaltado y las pernoctas.
+// route = null limpia todo.
+function showStageOnMap(route, dayIndex = -1) {
+  if (!map.getSource("stage")) return;
+  const color = route ? activityOf(route.activity).color : "#000";
+  const days = route ? dayRanges(route.points, route.stageStarts) : [];
+  const day = days.length > 1 && dayIndex >= 0 ? days[dayIndex] : null;
+
+  map.getSource("stage").setData(day ? {
+    type: "Feature",
+    properties: { color },
+    geometry: { type: "LineString", coordinates: route.points.slice(day.start, day.end + 1).map((p) => [p.lon, p.lat]) },
+  } : emptyCollection());
+  map.getSource("overnights").setData({
+    type: "FeatureCollection",
+    features: (route?.stageStarts ?? []).map((i, k) => ({
+      type: "Feature",
+      properties: { label: `Noche ${k + 1}` },
+      geometry: { type: "Point", coordinates: [route.points[i].lon, route.points[i].lat] },
+    })),
+  });
+  // Con un día elegido, el resto de la ruta se ve más apagado
+  map.setPaintProperty("route-selected", "line-opacity", day ? 0.35 : 1);
+}
+
+function showCursor(point) {
+  map.getSource("cursor")?.setData(point ? {
+    type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [point.lon, point.lat] },
+  } : emptyCollection());
+}
+
+function flyToRoute(route, points = route.points) {
   const bounds = new LngLatBounds();
-  for (const p of route.points) bounds.extend([p.lon, p.lat]);
+  for (const p of points) bounds.extend([p.lon, p.lat]);
   // Margen izquierdo grande para que el panel no tape la ruta
   map.fitBounds(bounds, { padding: { top: 80, bottom: 80, left: 420, right: 80 }, pitch: 50, duration: 2500 });
 }
@@ -225,18 +275,55 @@ function showFolder(id) {
   });
 }
 
-function showDetail(route) {
+// view: { day: -1 (total) o índice del día, editing: modo editar etapas, fly: mover la cámara }
+function showDetail(route, { day = -1, editing = false, fly = true } = {}) {
   selectedId = route.id;
   refreshMap();
-  flyToRoute(route);
+  showStageOnMap(route, editing ? -1 : day);
+  showCursor(null);
+  const days = dayRanges(route.points, route.stageStarts);
+  if (fly) flyToRoute(route, day >= 0 && days[day] ? route.points.slice(days[day].start, days[day].end + 1) : route.points);
+
   // "Volver" lleva a donde estabas: la carpeta abierta o la lista
   const inFolder = ui.folderId !== undefined;
+  const cum = cumulativeKm(route.points);
+  const stay = { editing: true, fly: false };
+
   renderDetail(panel, route, {
+    day,
+    editing,
     backLabel: inFolder ? (folderById(ui.folderId)?.name ?? "Sin carpeta") : "Mis rutas",
     folderName: folderById(route.folderId)?.name ?? null,
+  }, {
     onBack: () => (inFolder ? showFolder(ui.folderId) : showHome()),
     onEdit: () => editRoute(route),
     onDelete: () => removeRoute(route),
+    onSelectDay: (d) => showDetail(route, { day: d }),
+    onEditStages: () => showDetail(route, { editing: true, fly: false }),
+    onDoneStages: () => showDetail(route, { fly: false }),
+    onHoverKm: (km) => showCursor(km === null ? null : route.points[indexAtKm(cum, km)]),
+    onAddSplit: async (km) => {
+      const before = route.stageStarts.length;
+      route.stageStarts = cleanStarts([...route.stageStarts, indexAtKm(cum, km)], route.points.length);
+      if (route.stageStarts.length === before) return showError("Demasiado cerca de otra división o de un extremo de la ruta.");
+      await saveRoute(route);
+      showDetail(route, stay);
+    },
+    // Unir un día con el anterior: se quita la división y sus notas pasan al día anterior
+    onRemoveSplit: async (start) => {
+      const k = route.stageStarts.indexOf(start);
+      const prevStart = k > 0 ? route.stageStarts[k - 1] : 0;
+      const merged = [route.dayNotes[prevStart], route.dayNotes[start]].filter(Boolean).join("\n\n");
+      if (merged) route.dayNotes[prevStart] = merged;
+      delete route.dayNotes[start];
+      route.stageStarts = route.stageStarts.filter((i) => i !== start);
+      await saveRoute(route);
+      showDetail(route, stay);
+    },
+    onSaveDayNotes: async (start, text) => {
+      route.dayNotes[start] = text;
+      await saveRoute(route);
+    },
   });
 }
 
@@ -280,11 +367,19 @@ fileInput.addEventListener("change", async () => {
   }
 
   const stats = computeStats(parsed.points);
+  const stageStarts = detectStageStarts(parsed.points, parsed.trackStarts);
+  // En rutas de varios días, la duración es la suma de cada día (sin contar las noches)
+  const durationMin = stageStarts.length
+    ? dayRanges(parsed.points, stageStarts)
+        .map((d) => computeStats(parsed.points.slice(d.start, d.end + 1)).durationMin ?? 0)
+        .reduce((a, b) => a + b, 0) || null
+    : stats.durationMin;
   const summary = [
     `${parsed.points.length} puntos`,
     fmtKm(stats.distanceKm),
     stats.gainM !== null ? `+${fmtM(stats.gainM)} m` : null,
-    stats.durationMin ? fmtDuration(stats.durationMin) : null,
+    durationMin ? fmtDuration(durationMin) : null,
+    stageStarts.length ? `${stageStarts.length + 1} días detectados` : null,
   ].filter(Boolean).join(" · ");
 
   const result = await openRouteDialog({
@@ -294,7 +389,7 @@ fileInput.addEventListener("change", async () => {
       name: file.name.replace(/\.(gpx|kml)$/i, "").replace(/[-_]+/g, " "),
       date: parsed.date,
       activity: "hiking",
-      durationMin: stats.durationMin,
+      durationMin,
       notes: "",
       folderId: ui.folderId ?? null, // si añades desde una carpeta, va a esa carpeta
     },
@@ -307,6 +402,8 @@ fileInput.addEventListener("change", async () => {
     id: crypto.randomUUID(), // identificador único generado por el navegador
     ...result.values,
     photoIds: await storeNewPhotos(result.newPhotos),
+    stageStarts,
+    dayNotes: {},
     points: parsed.points,
   };
   await saveRoute(route);
@@ -344,6 +441,8 @@ function withDefaults(route) {
     notes: "",
     photoIds: [],
     folderId: null,
+    stageStarts: [],
+    dayNotes: {},
     durationMin: computeStats(route.points).durationMin,
     ...route,
   };

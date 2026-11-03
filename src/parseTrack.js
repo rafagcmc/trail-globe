@@ -1,6 +1,7 @@
 // Convierte el texto de un archivo GPX o KML en:
-// { points: [{ lat, lon, ele, t }], date }
-// (ele = altura o null; t = hora del punto en milisegundos o null; date = "AAAA-MM-DD" o null)
+// { points: [{ lat, lon, ele, t }], date, trackStarts }
+// (ele = altura o null; t = hora del punto en milisegundos o null; date = "AAAA-MM-DD" o null;
+//  trackStarts = posiciones donde empieza cada <trk> de un GPX, útil para detectar etapas)
 
 export function parseTrack(text, fileName) {
   const xml = new DOMParser().parseFromString(text, "application/xml");
@@ -10,12 +11,12 @@ export function parseTrack(text, fileName) {
   }
 
   const ext = fileName.toLowerCase().split(".").pop();
-  const points = ext === "kml" ? parseKml(xml) : parseGpx(xml);
+  const { points, trackStarts } = ext === "kml" ? { points: parseKml(xml), trackStarts: [] } : parseGpx(xml);
 
   if (points.length < 2) {
     throw new Error("No he encontrado una ruta (hacen falta al menos 2 puntos).");
   }
-  return { points, date: findDate(xml) };
+  return { points, date: findDate(xml), trackStarts };
 }
 
 // Primera fecha que aparezca en el archivo: <time> en GPX, <when> en KML.
@@ -28,21 +29,31 @@ function findDate(xml) {
 }
 
 function parseGpx(xml) {
-  // "trkpt" = punto de un track grabado; "rtept" = punto de una ruta planificada.
-  // Usamos "*" como namespace para que funcione con cualquier versión de GPX.
-  let nodes = [...xml.getElementsByTagNameNS("*", "trkpt")];
-  if (nodes.length === 0) nodes = [...xml.getElementsByTagNameNS("*", "rtept")];
+  // Un GPX puede traer varios <trk> (por ejemplo, uno por etapa). Recorremos cada uno
+  // y apuntamos en qué posición empieza, para proponer luego la división en días.
+  const points = [];
+  const trackStarts = [];
+  for (const trk of xml.getElementsByTagNameNS("*", "trk")) {
+    const nodes = [...trk.getElementsByTagNameNS("*", "trkpt")];
+    if (nodes.length === 0) continue;
+    if (points.length > 0) trackStarts.push(points.length);
+    points.push(...nodes.map(readPoint));
+  }
+  // "rtept" = punto de una ruta planificada (sin <trk>)
+  if (points.length === 0) points.push(...[...xml.getElementsByTagNameNS("*", "rtept")].map(readPoint));
+  return { points, trackStarts };
+}
 
-  return nodes.map((node) => {
-    const eleNode = node.getElementsByTagNameNS("*", "ele")[0];
-    const timeNode = node.getElementsByTagNameNS("*", "time")[0];
-    return {
-      lat: parseFloat(node.getAttribute("lat")),
-      lon: parseFloat(node.getAttribute("lon")),
-      ele: eleNode ? parseFloat(eleNode.textContent) : null,
-      t: timeNode ? parseTime(timeNode.textContent) : null,
-    };
-  });
+// Usamos "*" como namespace para que funcione con cualquier versión de GPX
+function readPoint(node) {
+  const eleNode = node.getElementsByTagNameNS("*", "ele")[0];
+  const timeNode = node.getElementsByTagNameNS("*", "time")[0];
+  return {
+    lat: parseFloat(node.getAttribute("lat")),
+    lon: parseFloat(node.getAttribute("lon")),
+    ele: eleNode ? parseFloat(eleNode.textContent) : null,
+    t: timeNode ? parseTime(timeNode.textContent) : null,
+  };
 }
 
 function parseKml(xml) {

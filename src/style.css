@@ -362,3 +362,82 @@ button, input, textarea { font: inherit; color: inherit; }
 .picker-item .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .picker-item strong { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .picker-item .info span { font-size: 12px; color: var(--text-muted); }
+
+/* ---------- Rutas de varios días ---------- */
+.day-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.day-tabs button {
+  flex: 1;
+  min-width: 40px;
+  padding: 6px 0;
+  border: none;
+  border-radius: 7px;
+  background: var(--surface-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.day-tabs button[aria-selected="true"] { background: var(--text); color: #fff; font-weight: 600; }
+
+.day-header { display: flex; flex-direction: column; gap: 2px; margin-bottom: -6px; }
+.day-header strong { font-size: 15px; font-weight: 600; }
+.day-header span { font-size: 12px; color: var(--text-muted); }
+
+.btn.dashed {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-align: left;
+}
+.btn.dashed:hover { border-color: var(--text-muted); color: var(--text); }
+
+.day-notes {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+}
+.day-notes:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+
+.stage-editor { display: flex; flex-direction: column; gap: 12px; }
+.stage-editor .section-label { margin: 0; }
+.help { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+.profile.tall { height: 120px; }
+.profile-wrap { position: relative; cursor: crosshair; }
+.profile-wrap .cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1.5px solid var(--accent);
+  pointer-events: none;
+}
+.profile-wrap .cursor span {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.stage-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.stage-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  font-size: 13px;
+}
+.stage-list span { flex: 1; color: var(--text-muted); font-size: 12px; }

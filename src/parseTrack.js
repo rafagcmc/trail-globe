@@ -1,6 +1,6 @@
 // Convierte el texto de un archivo GPX o KML en:
-// { points: [{ lat, lon, ele }], date }
-// (ele puede ser null si el archivo no trae altura; date, si no trae fecha)
+// { points: [{ lat, lon, ele, t }], date }
+// (ele = altura o null; t = hora del punto en milisegundos o null; date = "AAAA-MM-DD" o null)
 
 export function parseTrack(text, fileName) {
   const xml = new DOMParser().parseFromString(text, "application/xml");
@@ -35,10 +35,12 @@ function parseGpx(xml) {
 
   return nodes.map((node) => {
     const eleNode = node.getElementsByTagNameNS("*", "ele")[0];
+    const timeNode = node.getElementsByTagNameNS("*", "time")[0];
     return {
       lat: parseFloat(node.getAttribute("lat")),
       lon: parseFloat(node.getAttribute("lon")),
       ele: eleNode ? parseFloat(eleNode.textContent) : null,
+      t: timeNode ? parseTime(timeNode.textContent) : null,
     };
   });
 }
@@ -52,17 +54,30 @@ function parseKml(xml) {
     if (tuples.length < 2) continue; // un solo punto = marcador, no ruta
     for (const tuple of tuples) {
       const [lon, lat, alt] = tuple.split(",").map(Number);
-      points.push({ lat, lon, ele: Number.isFinite(alt) && alt !== 0 ? alt : null });
+      points.push({ lat, lon, ele: Number.isFinite(alt) && alt !== 0 ? alt : null, t: null });
     }
   }
 
   // Formato de Google Earth al grabar tracks: <gx:coord>lon lat alt</gx:coord>
   if (points.length === 0) {
-    for (const node of xml.getElementsByTagNameNS("*", "coord")) {
+    // Cada <gx:coord> va emparejado, en el mismo orden, con un <when> (su hora)
+    const whens = [...xml.getElementsByTagNameNS("*", "when")];
+    [...xml.getElementsByTagNameNS("*", "coord")].forEach((node, i) => {
       const [lon, lat, alt] = node.textContent.trim().split(/\s+/).map(Number);
-      points.push({ lat, lon, ele: Number.isFinite(alt) ? alt : null });
-    }
+      points.push({
+        lat,
+        lon,
+        ele: Number.isFinite(alt) ? alt : null,
+        t: whens[i] ? parseTime(whens[i].textContent) : null,
+      });
+    });
   }
 
   return points;
+}
+
+// Convierte una fecha ISO ("2026-10-12T08:03:11Z") en milisegundos, o null si no es válida
+function parseTime(text) {
+  const ms = Date.parse(text.trim());
+  return Number.isNaN(ms) ? null : ms;
 }

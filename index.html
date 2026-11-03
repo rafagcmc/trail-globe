@@ -1,22 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trail Globe</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="map"></div>
 
-    <aside id="panel">
-      <h1>Trail Globe</h1>
-      <label class="button">
-        + Add route
-        <input id="fileInput" type="file" accept=".gpx,.kml" multiple hidden />
-      </label>
-      <p id="error"></p>
-      <ul id="routeList"></ul>
-    </aside>
+    <!-- El contenido del panel lo pinta ui.js según la vista (inicio o detalle) -->
+    <aside id="panel"></aside>
+
+    <input id="fileInput" type="file" accept=".gpx,.kml" hidden />
+    <dialog id="routeDialog"></dialog>
+    <div id="toast" role="alert" hidden></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -4,14 +4,19 @@ import "maplibre-gl/dist/maplibre-gl.css";
 // Vite reempaqueta la librería y MapLibre deja de encontrar ese archivo, así que le
 // decimos dónde está. "?url" hace que Vite nos dé la ruta final del archivo.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
-
-setWorkerUrl(workerUrl);
 import "./style.css";
 import { parseTrack } from "./parseTrack.js";
 import { computeStats } from "./stats.js";
-import { saveRoute, loadRoutes, deleteRoute } from "./storage.js";
+import { saveRoute, loadRoutes, deleteRoute, savePhoto, deletePhotos } from "./storage.js";
+import { resizeImage } from "./photos.js";
+import { activityOf } from "./activities.js";
+import { fmtKm, fmtM, fmtDuration } from "./format.js";
+import { renderHome, renderDetail } from "./ui.js";
+import { openRouteDialog } from "./routeDialog.js";
 
-// --- Mapa ---
+setWorkerUrl(workerUrl);
+
+// ======================= Mapa =======================
 // Estilo vectorial de OpenFreeMap (gratis, sin clave). El mapa llega como
 // formas y textos y se dibuja en tu pantalla: nítido a cualquier zoom.
 const map = new Map({
@@ -20,39 +25,18 @@ const map = new Map({
   center: [-3.7, 40.4], // [longitud, latitud]: empezamos sobre la península
   zoom: 2,
 });
-
 map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
 
 // Relieve: datos de elevación públicos de AWS ("terrarium" = formato de esas teselas)
 const DEM_TILES = ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"];
-const DEM_ATTRIBUTION = "Terrain: Mapzen / AWS Open Data";
-
-// Cuando el estilo termina de cargar ponemos el globo, el relieve y nuestras capas.
-// (Añadir capas antes de este momento da error: el mapa aún no existe.)
-// Promesa que se cumple cuando el mapa está listo. Si subes una ruta antes,
-// addRoute espera a que lo esté en vez de fallar.
-let resolveMapReady;
-const mapReady = new Promise((resolve) => (resolveMapReady = resolve));
 
 map.on("load", () => {
   map.setProjection({ type: "globe" });
 
   // Una fuente de elevación para el relieve 3D y otra para el sombreado
-  map.addSource("terrain", {
-    type: "raster-dem",
-    tiles: DEM_TILES,
-    tileSize: 256,
-    maxzoom: 15,
-    encoding: "terrarium",
-    attribution: DEM_ATTRIBUTION,
-  });
-  map.addSource("hillshade", {
-    type: "raster-dem",
-    tiles: DEM_TILES,
-    tileSize: 256,
-    maxzoom: 15,
-    encoding: "terrarium",
-  });
+  const dem = { type: "raster-dem", tiles: DEM_TILES, tileSize: 256, maxzoom: 15, encoding: "terrarium" };
+  map.addSource("terrain", { ...dem, attribution: "Terrain: Mapzen / AWS Open Data" });
+  map.addSource("hillshade", dem);
   map.setTerrain({ source: "terrain", exaggeration: 1.3 });
 
   // Sombreado de montañas, metido por debajo de los textos del mapa
@@ -67,25 +51,20 @@ map.on("load", () => {
     firstLabelLayer
   );
 
-  // Una sola fuente con todas las rutas; al añadir una, actualizamos sus datos
   map.addSource("routes", { type: "geojson", data: emptyCollection() });
   map.addSource("starts", { type: "geojson", data: emptyCollection() });
 
-  // Borde blanco debajo + línea naranja encima: se lee sobre cualquier fondo
-  map.addLayer({
-    id: "routes-casing",
-    type: "line",
-    source: "routes",
-    layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": "#ffffff", "line-width": 7 },
-  });
-  map.addLayer({
-    id: "routes-line",
-    type: "line",
-    source: "routes",
-    layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": "#e8890c", "line-width": 4 },
-  });
+  const lineLayout = { "line-join": "round", "line-cap": "round" };
+  // Borde blanco debajo + línea de color encima: se lee sobre cualquier fondo.
+  // ["get", "color"] lee el color de cada ruta de sus propiedades (según la actividad).
+  map.addLayer({ id: "routes-casing", type: "line", source: "routes", layout: lineLayout,
+    paint: { "line-color": "#ffffff", "line-width": 7 } });
+  map.addLayer({ id: "routes-line", type: "line", source: "routes", layout: lineLayout,
+    paint: { "line-color": ["get", "color"], "line-width": 4 } });
+  // La ruta seleccionada, más gruesa. El filtro decide qué ruta se dibuja en esta capa.
+  map.addLayer({ id: "route-selected", type: "line", source: "routes", layout: lineLayout,
+    filter: ["==", ["get", "id"], ""],
+    paint: { "line-color": ["get", "color"], "line-width": 7 } });
 
   // Chincheta en el inicio de cada ruta: visible aunque mires el globo entero
   map.addLayer({
@@ -94,137 +73,193 @@ map.on("load", () => {
     source: "starts",
     paint: {
       "circle-radius": 6,
-      "circle-color": "#e8890c",
+      "circle-color": ["get", "color"],
       "circle-stroke-color": "#ffffff",
       "circle-stroke-width": 2,
     },
   });
 
-  resolveMapReady();
-});
+  // Pulsar una chincheta abre su ruta
+  map.on("click", "starts", (e) => {
+    const route = routes.find((r) => r.id === e.features[0].properties.id);
+    if (route) showDetail(route);
+  });
+  map.on("mouseenter", "starts", () => (map.getCanvas().style.cursor = "pointer"));
+  map.on("mouseleave", "starts", () => (map.getCanvas().style.cursor = ""));
 
-// --- Rutas ---
-// Cada ruta: { id, name, date, points }. Se guardan en el navegador (storage.js).
-let routes = [];
+  refreshMap(); // por si las rutas se cargaron antes que el mapa
+});
 
 function emptyCollection() {
   return { type: "FeatureCollection", features: [] };
 }
 
-// Vuelve a dibujar todas las rutas a partir de la lista "routes"
+// ======================= Estado =======================
+// Cada ruta: { id, name, date, activity, durationMin, notes, photoIds, points }
+let routes = [];
+let selectedId = null;
+
+const panel = document.getElementById("panel");
+const fileInput = document.getElementById("fileInput");
+const toast = document.getElementById("toast");
+
+// Vuelve a dibujar todas las rutas en el mapa a partir de la lista "routes"
 function refreshMap() {
+  if (!map.getSource("routes")) return; // el mapa aún no ha cargado: se dibujará al cargar
+  const feature = (r, geometry) => ({
+    type: "Feature",
+    properties: { id: r.id, color: activityOf(r.activity).color },
+    geometry,
+  });
   map.getSource("routes").setData({
     type: "FeatureCollection",
-    features: routes.map((r) => ({
-      type: "Feature",
-      properties: { name: r.name },
-      geometry: { type: "LineString", coordinates: r.points.map((p) => [p.lon, p.lat]) },
-    })),
+    features: routes.map((r) =>
+      feature(r, { type: "LineString", coordinates: r.points.map((p) => [p.lon, p.lat]) })
+    ),
   });
   map.getSource("starts").setData({
     type: "FeatureCollection",
-    features: routes.map((r) => ({
-      type: "Feature",
-      properties: { name: r.name },
-      geometry: { type: "Point", coordinates: [r.points[0].lon, r.points[0].lat] },
-    })),
+    features: routes.map((r) =>
+      feature(r, { type: "Point", coordinates: [r.points[0].lon, r.points[0].lat] })
+    ),
   });
-}
-
-function boundsOf(points) {
-  // Rectángulo que contiene toda la ruta, para encuadrarla con la cámara
-  const bounds = new LngLatBounds();
-  for (const p of points) bounds.extend([p.lon, p.lat]);
-  return bounds;
+  map.setFilter("route-selected", ["==", ["get", "id"], selectedId ?? ""]);
 }
 
 function flyToRoute(route) {
-  map.fitBounds(boundsOf(route.points), { padding: 80, pitch: 50, duration: 2500 });
+  const bounds = new LngLatBounds();
+  for (const p of route.points) bounds.extend([p.lon, p.lat]);
+  // Margen izquierdo grande para que el panel no tape la ruta
+  map.fitBounds(bounds, { padding: { top: 80, bottom: 80, left: 420, right: 80 }, pitch: 50, duration: 2500 });
 }
 
-const fileInput = document.getElementById("fileInput");
-const routeList = document.getElementById("routeList");
-const errorBox = document.getElementById("error");
-
-// Pinta la lista del panel: más recientes arriba, las que no tienen fecha al final
-function renderList() {
-  const sorted = [...routes].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-  routeList.replaceChildren(...sorted.map(createListItem));
+function showError(message) {
+  toast.textContent = message;
+  toast.hidden = false;
+  clearTimeout(showError.timer);
+  showError.timer = setTimeout(() => (toast.hidden = true), 6000);
 }
 
-function createListItem(route) {
-  const stats = computeStats(route.points);
-  const gainText = stats.gainM === null ? "sin datos de altura" : `+${stats.gainM} m`;
-  const dateText = route.date
-    ? new Date(route.date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
-    : "sin fecha";
+// ======================= Vistas =======================
+function showHome() {
+  selectedId = null;
+  refreshMap();
+  renderHome(panel, routes, { onAdd: () => fileInput.click(), onOpen: showDetail });
+}
 
-  const item = document.createElement("li");
-  item.innerHTML = `
-    <div class="info">
-      <strong></strong>
-      <span>${dateText} · ${stats.distanceKm.toFixed(1)} km · ${gainText}</span>
-    </div>
-    <button class="delete" title="Borrar ruta">×</button>`;
-  item.querySelector("strong").textContent = route.name; // textContent evita inyectar HTML
+function showDetail(route) {
+  selectedId = route.id;
+  refreshMap();
+  flyToRoute(route);
+  renderDetail(panel, route, {
+    onBack: showHome,
+    onEdit: () => editRoute(route),
+    onDelete: () => removeRoute(route),
+  });
+}
 
-  item.querySelector(".info").addEventListener("click", () => flyToRoute(route));
-  item.querySelector(".delete").addEventListener("click", () => removeRoute(route));
-  return item;
+// ======================= Acciones =======================
+// Reduce y guarda las fotos nuevas; devuelve sus ids
+async function storeNewPhotos(files) {
+  const ids = [];
+  for (const file of files) {
+    try {
+      ids.push(await savePhoto(await resizeImage(file)));
+    } catch {
+      showError(`No he podido leer la foto ${file.name}.`);
+    }
+  }
+  return ids;
+}
+
+// 1) Eliges un archivo → 2) se lee → 3) se abre el formulario ya relleno
+fileInput.addEventListener("change", async () => {
+  const file = fileInput.files[0];
+  fileInput.value = ""; // permite volver a elegir el mismo archivo
+  if (!file) return;
+
+  let parsed;
+  try {
+    parsed = parseTrack(await file.text(), file.name);
+  } catch (err) {
+    return showError(`${file.name}: ${err.message}`);
+  }
+
+  const stats = computeStats(parsed.points);
+  const summary = [
+    `${parsed.points.length} puntos`,
+    fmtKm(stats.distanceKm),
+    stats.gainM !== null ? `+${fmtM(stats.gainM)} m` : null,
+    stats.durationMin ? fmtDuration(stats.durationMin) : null,
+  ].filter(Boolean).join(" · ");
+
+  const result = await openRouteDialog({
+    title: "Añadir ruta",
+    fileInfo: { name: file.name, summary },
+    values: {
+      name: file.name.replace(/\.(gpx|kml)$/i, "").replace(/[-_]+/g, " "),
+      date: parsed.date,
+      activity: "hiking",
+      durationMin: stats.durationMin,
+      notes: "",
+    },
+  });
+  if (!result) return;
+
+  const route = {
+    id: crypto.randomUUID(), // identificador único generado por el navegador
+    ...result.values,
+    photoIds: await storeNewPhotos(result.newPhotos),
+    points: parsed.points,
+  };
+  await saveRoute(route);
+  routes.push(route);
+  showDetail(route);
+});
+
+async function editRoute(route) {
+  const result = await openRouteDialog({ title: "Editar ruta", values: route, photoIds: route.photoIds });
+  if (!result) return;
+
+  await deletePhotos(result.removedPhotoIds);
+  const newIds = await storeNewPhotos(result.newPhotos);
+  Object.assign(route, result.values, {
+    photoIds: [...route.photoIds.filter((id) => !result.removedPhotoIds.includes(id)), ...newIds],
+  });
+  await saveRoute(route);
+  showDetail(route);
 }
 
 async function removeRoute(route) {
-  if (!confirm(`¿Borrar "${route.name}"?`)) return;
+  if (!confirm(`¿Borrar "${route.name}"? No se puede deshacer.`)) return;
+  await deletePhotos(route.photoIds);
   await deleteRoute(route.id);
   routes = routes.filter((r) => r.id !== route.id);
-  refreshMap();
-  renderList();
+  showHome();
 }
 
-// Se ejecuta cada vez que eliges uno o varios archivos
-fileInput.addEventListener("change", async () => {
-  errorBox.textContent = "";
-  let lastAdded = null;
+// Las rutas guardadas con versiones anteriores no tienen todos los campos:
+// les damos valores por defecto para que el resto del código no tenga que comprobarlo.
+function withDefaults(route) {
+  return {
+    activity: "hiking",
+    notes: "",
+    photoIds: [],
+    durationMin: computeStats(route.points).durationMin,
+    ...route,
+  };
+}
 
-  for (const file of fileInput.files) {
-    try {
-      // Leer un archivo tarda un poco: "await" espera a que termine
-      // sin bloquear la página.
-      const text = await file.text();
-      const { points, date } = parseTrack(text, file.name);
-      const route = {
-        id: crypto.randomUUID(), // identificador único generado por el navegador
-        name: file.name.replace(/\.(gpx|kml)$/i, ""),
-        date,
-        points,
-      };
-      await saveRoute(route);
-      routes.push(route);
-      lastAdded = route;
-    } catch (err) {
-      errorBox.textContent = `${file.name}: ${err.message}`;
-    }
-  }
-
-  fileInput.value = ""; // permite volver a subir el mismo archivo
-  if (lastAdded) {
-    await mapReady;
-    refreshMap();
-    renderList();
-    flyToRoute(lastAdded);
-  }
-});
-
-// Al abrir la página: recuperamos las rutas guardadas y las pintamos
+// ======================= Arranque =======================
 async function init() {
   try {
-    routes = await loadRoutes();
+    routes = (await loadRoutes()).map(withDefaults);
   } catch (err) {
-    errorBox.textContent = `No he podido leer las rutas guardadas: ${err.message}`;
+    showError(`No he podido leer las rutas guardadas: ${err.message}`);
   }
-  await mapReady;
-  refreshMap();
-  renderList();
+  // No esperamos al mapa: el panel aparece al instante y las rutas
+  // se dibujan en cuanto el mapa termine de cargar (ver map.on("load"))
+  showHome();
 }
 
 init();

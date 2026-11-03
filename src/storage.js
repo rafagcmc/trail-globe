@@ -11,6 +11,7 @@ import { createStore, get, set, del, delMany, values } from "idb-keyval";
 // no obliga a leer también todas las fotos.
 const routeStore = createStore("trail-globe", "routes");
 const photoStore = createStore("trail-globe-photos", "photos");
+const folderStore = createStore("trail-globe-folders", "folders");
 
 // Para ocupar menos, cada punto se guarda como [lon, lat, ele, t] en vez de un objeto,
 // redondeando a 5 decimales (≈ 1 metro de precisión, de sobra para una ruta a pie).
@@ -53,4 +54,17 @@ export function getPhoto(id) {
 
 export async function deletePhotos(ids) {
   if (ids.length > 0) await delMany(ids, photoStore);
+}
+
+// Carpetas: { id, name }. Cada ruta guarda a qué carpeta pertenece (route.folderId).
+export async function saveFolder(folder) {
+  await set(folder.id, folder, folderStore);
+}
+
+export function loadFolders() {
+  return values(folderStore);
+}
+
+export async function deleteFolder(id) {
+  await del(id, folderStore);
 }

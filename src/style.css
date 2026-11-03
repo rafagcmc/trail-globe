@@ -95,7 +95,8 @@ button, input, textarea { font: inherit; color: inherit; }
   min-width: 0;
 }
 .stat strong { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stat-row .stat strong { font-size: 16px; }
+.stat-row .stat strong { font-size: 15px; }
+.stat-row .stat { padding: 12px; }
 .stat span { font-size: 12px; color: var(--text-muted); }
 
 /* ---------- Lista de rutas ---------- */
@@ -242,3 +243,122 @@ button, input, textarea { font: inherit; color: inherit; }
   font-size: 13px;
   box-shadow: var(--shadow);
 }
+
+/* ---------- Buscador, pestañas y filtros ---------- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+.search input { flex: 1; min-width: 0; border: none; background: none; font-size: 13px; outline: none; color: var(--text); }
+.search:focus-within { outline: 2px solid var(--accent); }
+
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; border-radius: 9px; background: var(--surface-muted); }
+.tabs button {
+  padding: 6px 0;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+.tabs button:disabled { opacity: 0.45; cursor: default; }
+
+#homeContent { display: flex; flex-direction: column; gap: 16px; }
+
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pill {
+  appearance: none;
+  padding: 5px 26px 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='m6 9 6 6 6-6' stroke='%236B726E' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.pill.active { border-color: var(--text); }
+.clear, .link { padding: 0; border: none; background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
+
+.section-header { display: flex; justify-content: space-between; align-items: baseline; }
+.section-header .section-label { margin: 0; }
+
+.folder-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+.folder-icon.muted { opacity: 0.6; }
+.folder-meta { margin-top: 6px; color: var(--text-muted); }
+
+.field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+}
+
+/* ---------- Carpeta: añadir y quitar rutas ---------- */
+.folder-actions { display: flex; gap: 8px; }
+.folder-actions .btn { flex: 1; }
+
+.route-list li.removable { position: relative; }
+.remove-from-folder {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0;
+}
+.route-list li.removable:hover .remove-from-folder,
+.remove-from-folder:focus-visible { opacity: 1; }
+.remove-from-folder:hover { color: var(--danger); }
+
+#pickerDialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+#pickerDialog::backdrop { background: rgba(26, 31, 28, 0.35); }
+.picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.picker-list li + li { border-top: 1px solid var(--border); }
+.picker-list .empty { padding: 16px; }
+.picker-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer; }
+.picker-item:hover { background: var(--surface-muted); }
+.picker-item input { width: 16px; height: 16px; accent-color: var(--accent); }
+.picker-item .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.picker-item strong { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-item .info span { font-size: 12px; color: var(--text-muted); }

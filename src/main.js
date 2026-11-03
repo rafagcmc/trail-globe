@@ -7,12 +7,16 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "./style.css";
 import { parseTrack } from "./parseTrack.js";
 import { computeStats } from "./stats.js";
-import { saveRoute, loadRoutes, deleteRoute, savePhoto, deletePhotos } from "./storage.js";
+import {
+  saveRoute, loadRoutes, deleteRoute, savePhoto, deletePhotos,
+  saveFolder, loadFolders, deleteFolder,
+} from "./storage.js";
 import { resizeImage } from "./photos.js";
 import { activityOf } from "./activities.js";
 import { fmtKm, fmtM, fmtDuration } from "./format.js";
-import { renderHome, renderDetail } from "./ui.js";
+import { renderHome, renderFolder, renderDetail } from "./ui.js";
 import { openRouteDialog } from "./routeDialog.js";
+import { pickRoutes } from "./routePicker.js";
 
 setWorkerUrl(workerUrl);
 
@@ -95,9 +99,18 @@ function emptyCollection() {
 }
 
 // ======================= Estado =======================
-// Cada ruta: { id, name, date, activity, durationMin, notes, photoIds, points }
+// Cada ruta: { id, name, date, activity, durationMin, notes, photoIds, folderId, points }
 let routes = [];
+let folders = []; // [{ id, name }]
 let selectedId = null;
+let shownRoutes = []; // las rutas que se ven ahora en el mapa (según filtros o carpeta)
+
+// Estado de la interfaz: se conserva al ir y volver del detalle
+const ui = {
+  tab: "list", // "list" | "folders"
+  folderId: undefined, // carpeta abierta: id, null = "Sin carpeta", undefined = ninguna
+  filters: { query: "", activity: "all", period: "all" },
+};
 
 const panel = document.getElementById("panel");
 const fileInput = document.getElementById("fileInput");
@@ -106,6 +119,9 @@ const toast = document.getElementById("toast");
 // Vuelve a dibujar todas las rutas en el mapa a partir de la lista "routes"
 function refreshMap() {
   if (!map.getSource("routes")) return; // el mapa aún no ha cargado: se dibujará al cargar
+  // En el detalle se ve la ruta abierta aunque los filtros la oculten
+  const selected = routes.find((r) => r.id === selectedId);
+  const list = selected && !shownRoutes.includes(selected) ? [...shownRoutes, selected] : shownRoutes;
   const feature = (r, geometry) => ({
     type: "Feature",
     properties: { id: r.id, color: activityOf(r.activity).color },
@@ -113,13 +129,13 @@ function refreshMap() {
   });
   map.getSource("routes").setData({
     type: "FeatureCollection",
-    features: routes.map((r) =>
+    features: list.map((r) =>
       feature(r, { type: "LineString", coordinates: r.points.map((p) => [p.lon, p.lat]) })
     ),
   });
   map.getSource("starts").setData({
     type: "FeatureCollection",
-    features: routes.map((r) =>
+    features: list.map((r) =>
       feature(r, { type: "Point", coordinates: [r.points[0].lon, r.points[0].lat] })
     ),
   });
@@ -141,24 +157,102 @@ function showError(message) {
 }
 
 // ======================= Vistas =======================
-function showHome() {
-  selectedId = null;
+const folderById = (id) => folders.find((f) => f.id === id);
+
+function setShown(list) {
+  shownRoutes = list;
   refreshMap();
-  renderHome(panel, routes, { onAdd: () => fileInput.click(), onOpen: showDetail });
+}
+
+function showHome(options = {}) {
+  selectedId = null;
+  ui.folderId = undefined;
+  renderHome(panel, { routes, folders, filters: ui.filters, tab: ui.tab, ...options }, {
+    onAdd: () => fileInput.click(),
+    onOpen: showDetail,
+    onTab: (tab, opts) => { ui.tab = tab; showHome(opts); },
+    onVisibleChange: setShown,
+    onOpenFolder: showFolder,
+    onNewFolder: async () => {
+      const name = prompt("Nombre de la carpeta:")?.trim();
+      if (name) { await createFolder(name); showHome(); }
+    },
+  });
+}
+
+// id = carpeta, o null para las rutas "Sin carpeta"
+function showFolder(id) {
+  selectedId = null;
+  ui.folderId = id;
+  const folder = id ? folderById(id) : null;
+  renderFolder(panel, { folder, routes: routes.filter((r) => (r.folderId ?? null) === id) }, {
+    onBack: () => { ui.tab = "folders"; showHome(); },
+    onOpen: showDetail,
+    onVisibleChange: setShown,
+    // Elegir rutas que ya tienes (pueden venir de otra carpeta: se mueven a esta)
+    onAddExisting: async () => {
+      const ids = await pickRoutes({ folder, routes, folders });
+      if (!ids) return;
+      for (const r of routes.filter((r) => ids.includes(r.id))) {
+        r.folderId = id;
+        await saveRoute(r);
+      }
+      showFolder(id);
+    },
+    onRemoveRoute: async (route) => {
+      route.folderId = null;
+      await saveRoute(route);
+      showFolder(id);
+    },
+    onRename: async () => {
+      const name = prompt("Nuevo nombre de la carpeta:", folder.name)?.trim();
+      if (!name) return;
+      folder.name = name;
+      await saveFolder(folder);
+      showFolder(id);
+    },
+    onDelete: async () => {
+      if (!confirm(`¿Borrar la carpeta "${folder.name}"? Sus rutas no se borran: pasan a "Sin carpeta".`)) return;
+      for (const r of routes.filter((r) => r.folderId === id)) {
+        r.folderId = null;
+        await saveRoute(r);
+      }
+      await deleteFolder(id);
+      folders = folders.filter((f) => f.id !== id);
+      ui.tab = "folders";
+      showHome();
+    },
+  });
 }
 
 function showDetail(route) {
   selectedId = route.id;
   refreshMap();
   flyToRoute(route);
+  // "Volver" lleva a donde estabas: la carpeta abierta o la lista
+  const inFolder = ui.folderId !== undefined;
   renderDetail(panel, route, {
-    onBack: showHome,
+    backLabel: inFolder ? (folderById(ui.folderId)?.name ?? "Sin carpeta") : "Mis rutas",
+    folderName: folderById(route.folderId)?.name ?? null,
+    onBack: () => (inFolder ? showFolder(ui.folderId) : showHome()),
     onEdit: () => editRoute(route),
     onDelete: () => removeRoute(route),
   });
 }
 
 // ======================= Acciones =======================
+async function createFolder(name) {
+  const folder = { id: crypto.randomUUID(), name };
+  await saveFolder(folder);
+  folders.push(folder);
+  return folder;
+}
+
+// Aplica lo que devuelve el formulario: crea la carpeta nueva si la pidió
+async function resolveFolder(result) {
+  if (result.newFolderName) result.values.folderId = (await createFolder(result.newFolderName)).id;
+}
+
 // Reduce y guarda las fotos nuevas; devuelve sus ids
 async function storeNewPhotos(files) {
   const ids = [];
@@ -202,9 +296,12 @@ fileInput.addEventListener("change", async () => {
       activity: "hiking",
       durationMin: stats.durationMin,
       notes: "",
+      folderId: ui.folderId ?? null, // si añades desde una carpeta, va a esa carpeta
     },
+    folders,
   });
   if (!result) return;
+  await resolveFolder(result);
 
   const route = {
     id: crypto.randomUUID(), // identificador único generado por el navegador
@@ -218,8 +315,9 @@ fileInput.addEventListener("change", async () => {
 });
 
 async function editRoute(route) {
-  const result = await openRouteDialog({ title: "Editar ruta", values: route, photoIds: route.photoIds });
+  const result = await openRouteDialog({ title: "Editar ruta", values: route, photoIds: route.photoIds, folders });
   if (!result) return;
+  await resolveFolder(result);
 
   await deletePhotos(result.removedPhotoIds);
   const newIds = await storeNewPhotos(result.newPhotos);
@@ -235,7 +333,7 @@ async function removeRoute(route) {
   await deletePhotos(route.photoIds);
   await deleteRoute(route.id);
   routes = routes.filter((r) => r.id !== route.id);
-  showHome();
+  ui.folderId !== undefined ? showFolder(ui.folderId) : showHome();
 }
 
 // Las rutas guardadas con versiones anteriores no tienen todos los campos:
@@ -245,6 +343,7 @@ function withDefaults(route) {
     activity: "hiking",
     notes: "",
     photoIds: [],
+    folderId: null,
     durationMin: computeStats(route.points).durationMin,
     ...route,
   };
@@ -254,6 +353,7 @@ function withDefaults(route) {
 async function init() {
   try {
     routes = (await loadRoutes()).map(withDefaults);
+    folders = await loadFolders();
   } catch (err) {
     showError(`No he podido leer las rutas guardadas: ${err.message}`);
   }

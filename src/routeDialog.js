@@ -11,7 +11,7 @@ import { esc } from "./format.js";
 
 const dialog = document.getElementById("routeDialog");
 
-export function openRouteDialog({ title, fileInfo = null, values, photoIds = [] }) {
+export function openRouteDialog({ title, fileInfo = null, values, photoIds = [], folders = [] }) {
   const duration = values.durationMin;
   const hours = duration == null ? "" : Math.floor(duration / 60);
   const minutes = duration == null ? "" : duration % 60;
@@ -51,6 +51,16 @@ export function openRouteDialog({ title, fileInfo = null, values, photoIds = [] 
             </label>`).join("")}
         </div>
       </fieldset>
+      <div class="field">
+        <span>Carpeta</span>
+        <select name="folderId">
+          <option value="">Ninguna</option>
+          ${[...folders].sort((a, b) => a.name.localeCompare(b.name, "es")).map((f) => `
+            <option value="${f.id}" ${f.id === values.folderId ? "selected" : ""}>${esc(f.name)}</option>`).join("")}
+          <option value="__new">+ Nueva carpeta…</option>
+        </select>
+        <input name="newFolderName" placeholder="Nombre de la carpeta nueva" maxlength="60" hidden>
+      </div>
       <label class="field">
         <span>Notas</span>
         <textarea name="notes" rows="3" placeholder="Cómo fue, con quién, qué recordar…">${esc(values.notes)}</textarea>
@@ -66,6 +76,16 @@ export function openRouteDialog({ title, fileInfo = null, values, photoIds = [] 
     </form>`;
 
   const form = dialog.querySelector("form");
+
+  // Al elegir "+ Nueva carpeta…" aparece un campo para escribir su nombre
+  const folderSelect = form.querySelector('select[name="folderId"]');
+  const newFolderInput = form.querySelector('input[name="newFolderName"]');
+  folderSelect.addEventListener("change", () => {
+    const isNew = folderSelect.value === "__new";
+    newFolderInput.hidden = !isNew;
+    newFolderInput.required = isNew;
+    if (isNew) newFolderInput.focus();
+  });
   const grid = dialog.querySelector("#dialogPhotos");
   const newPhotos = []; // archivos que el usuario añade ahora
   const removed = new Set(); // ids de fotos ya guardadas que quiere quitar
@@ -131,7 +151,10 @@ export function openRouteDialog({ title, fileInfo = null, values, photoIds = [] 
             durationMin: h === "" && m === "" ? null : Number(h || 0) * 60 + Number(m || 0),
             activity: data.get("activity") ?? "hiking",
             notes: data.get("notes").trim(),
+            folderId: data.get("folderId") === "__new" ? null : data.get("folderId") || null,
           },
+          // Si eligió crear carpeta, main.js la crea y asigna la ruta a ella
+          newFolderName: data.get("folderId") === "__new" ? data.get("newFolderName").trim() : null,
           newPhotos: newPhotos.map((p) => p.file),
           removedPhotoIds: [...removed],
         });

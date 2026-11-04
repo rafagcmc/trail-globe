@@ -15,7 +15,7 @@ import {
 } from "./storage.js";
 import { resizeImage } from "./photos.js";
 import { activityOf } from "./activities.js";
-import { fmtKm, fmtM, fmtDuration, esc } from "./format.js";
+import { fmtKm, fmtM, fmtDuration, fmtDate, esc } from "./format.js";
 import { renderHome, renderFolder, collectionSummary } from "./ui.js";
 import { renderDetail } from "./detail.js";
 import { detectStageStarts, cleanStarts, dayRanges, cumulativeKm, indexAtKm } from "./stages.js";
@@ -27,6 +27,10 @@ import { renderCollection } from "./collectionView.js";
 import { computeAchievements, CATEGORIES } from "./achievements.js";
 import { RARITIES } from "./rarity.js";
 import { hexMedal } from "./medals.js";
+import { createRecorder } from "./recorder.js";
+import { renderRecordStart, renderRecording, recordingBanner } from "./recordView.js";
+import { withTerrainElevation } from "./elevation.js";
+import { isNativeApp, openLocationSettings } from "./tracker.js";
 import { initSheet } from "./sheet.js";
 import { newId } from "./id.js";
 
@@ -110,6 +114,18 @@ map.on("load", () => {
     paint: { "text-color": "#1b1f1d", "text-halo-color": "#ffffff", "text-halo-width": 1.5 } });
   map.addLayer({ id: "cursor", type: "circle", source: "cursor",
     paint: { "circle-radius": 6, "circle-color": "#e8890c", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
+
+  // Grabación en curso: la línea que vas dejando y tu posición
+  map.addSource("rec", { type: "geojson", data: emptyCollection() });
+  map.addSource("me", { type: "geojson", data: emptyCollection() });
+  map.addLayer({ id: "rec-casing", type: "line", source: "rec", layout: lineLayout,
+    paint: { "line-color": "#ffffff", "line-width": 8 } });
+  map.addLayer({ id: "rec-line", type: "line", source: "rec", layout: lineLayout,
+    paint: { "line-color": "#e8890c", "line-width": 5 } });
+  map.addLayer({ id: "me-halo", type: "circle", source: "me",
+    paint: { "circle-radius": ["get", "halo"], "circle-color": "#2b6cb0", "circle-opacity": 0.12, "circle-pitch-alignment": "map" } });
+  map.addLayer({ id: "me", type: "circle", source: "me",
+    paint: { "circle-radius": 7, "circle-color": "#2b6cb0", "circle-stroke-color": "#ffffff", "circle-stroke-width": 3 } });
 
   // Pulsar una chincheta abre su ruta
   map.on("click", "starts", (e) => {
@@ -236,8 +252,10 @@ function showHome(options = {}) {
   selectedId = null;
   panel.scrollTop = 0;
   ui.folderId = undefined;
-  renderHome(panel, { routes, folders, filters: ui.filters, tab: ui.tab, ...options }, {
+  ui.screen = "home";
+  renderHome(panel, { routes, folders, filters: ui.filters, tab: ui.tab, recBanner: recordingBanner(rec), ...options }, {
     onAdd: () => fileInput.click(),
+    onRecord: showRecord,
     onOpen: showDetail,
     onTab: (tab, opts) => { ui.tab = tab; showHome(opts); },
     onVisibleChange: setShown,
@@ -254,6 +272,7 @@ function showHome(options = {}) {
 
 // id = carpeta, o null para las rutas "Sin carpeta"
 function showFolder(id) {
+  ui.screen = "folder";
   selectedId = null;
   panel.scrollTop = 0;
   ui.folderId = id;
@@ -300,6 +319,7 @@ function showFolder(id) {
 
 // view: { day: -1 (total) o índice del día, editing: modo editar etapas, fly: mover la cámara }
 function showDetail(route, { day = -1, editing = false, fly = true } = {}) {
+  ui.screen = "detail";
   selectedId = route.id;
   refreshMap();
   showStageOnMap(route, editing ? -1 : day);
@@ -547,6 +567,145 @@ document.addEventListener("keydown", (e) => {
   drawCollection();
 });
 
+// ======================= Grabar con el GPS =======================
+const rec = createRecorder({ onChange: onRecordingChange });
+ui.recActivity = "hiking";
+let follow = { on: true, pausedUntil: 0, centered: false };
+
+function showRecord() {
+  selectedId = null;
+  refreshMap();
+  ui.screen = "record";
+  panel.scrollTop = 0;
+  panel.innerHTML = "";
+  follow = { on: true, pausedUntil: 0, centered: false };
+  rec.watch(); // empieza a buscar señal ya, para que esté lista al pulsar Empezar
+  if (sheet.isMobile()) sheet.setState(1);
+  drawRecord();
+}
+
+function drawRecord() {
+  const h = {
+    onBack: () => {
+      if (!rec.active) rec.unwatch(); // sin grabar no hace falta seguir escuchando el GPS
+      showHome();
+    },
+    onActivity: (a) => { ui.recActivity = a; drawRecord(); },
+    onStart: (a) => { rec.start(a); panel.innerHTML = ""; drawRecord(); },
+    onPause: () => rec.pause(),
+    onResume: () => rec.resume(),
+    onFinish: finishRecording,
+    onSettings: openLocationSettings,
+  };
+  if (rec.active) renderRecording(panel, rec, h);
+  else renderRecordStart(panel, { gps: rec.gps, activity: ui.recActivity }, h);
+  const discard = panel.querySelector("[data-action=discard]");
+  if (!discard && rec.active) {
+    panel.querySelector(".rec-live")?.insertAdjacentHTML("beforeend", `<button class="link rec-discard" data-action="discard">Descartar grabación</button>`);
+    panel.querySelector("[data-action=discard]").onclick = async () => {
+      if (!confirm("¿Descartar la grabación? Se perderán los puntos grabados.")) return;
+      await rec.discard();
+      showRecord();
+    };
+  }
+}
+
+// Cada posición nueva, cada pausa y cada segundo del reloj
+function onRecordingChange() {
+  if (ui.screen === "record") drawRecord();
+  else {
+    // En el inicio, la barra "Grabando" lleva el tiempo y los km al día
+    const banner = panel.querySelector(".rec-banner");
+    if (banner && rec.active) {
+      banner.outerHTML = recordingBanner(rec);
+      panel.querySelector(".rec-banner").onclick = showRecord;
+    }
+  }
+  drawRecordingOnMap();
+}
+setInterval(() => rec.state?.status === "recording" && onRecordingChange(), 1000);
+
+function drawRecordingOnMap() {
+  if (!map.getSource("rec")) return;
+  const pts = rec.state?.points ?? [];
+  map.getSource("rec").setData(pts.length > 1
+    ? { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: pts.map((p) => [p.lon, p.lat]) } }
+    : emptyCollection());
+  const last = rec.gps.last;
+  const showMe = last && (rec.active || ui.screen === "record");
+  map.getSource("me").setData(showMe ? {
+    type: "Feature", properties: { halo: Math.min(40, Math.max(10, (rec.gps.acc ?? 10) / 2)) },
+    geometry: { type: "Point", coordinates: [last.lon, last.lat] },
+  } : emptyCollection());
+  // La cámara te sigue, salvo un rato después de que muevas tú el mapa
+  if (showMe && ui.screen === "record" && Date.now() > follow.pausedUntil) {
+    if (!follow.centered) {
+      follow.centered = true;
+      map.flyTo({ center: [last.lon, last.lat], zoom: 15.5, pitch: 0, bearing: 0, padding: mapPadding(), duration: 1500 });
+    } else if (follow.last !== last) {
+      map.easeTo({ center: [last.lon, last.lat], padding: mapPadding(), duration: 800 });
+    }
+    follow.last = last;
+  }
+}
+map.on("dragstart", (e) => { if (e.originalEvent) follow.pausedUntil = Date.now() + 20000; });
+
+async function finishRecording() {
+  rec.pause(); // el reloj se para mientras rellenas los datos
+  const data = await rec.finish();
+  if (data.points.length < 2) {
+    if (confirm("Aún no se ha grabado ningún punto (hace falta señal GPS). ¿Descartar la grabación?")) {
+      await rec.discard();
+      showHome();
+    }
+    return;
+  }
+  showError("Corrigiendo la altura con el mapa de relieve…");
+  const { points, corrected } = await withTerrainElevation(data.points);
+  toast.hidden = true;
+  const stats = computeStats(points);
+  const stageStarts = detectStageStarts(points);
+  const date = new Date(data.startedAt);
+  const isoDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const summary = [
+    fmtKm(stats.distanceKm),
+    stats.gainM !== null ? `+${fmtM(stats.gainM)} m` : null,
+    fmtDuration(data.movingMin),
+    corrected ? "altura del relieve" : "altura del GPS (sin conexión)",
+  ].filter(Boolean).join(" · ");
+
+  const result = await openRouteDialog({
+    title: "Guardar ruta grabada",
+    fileInfo: { name: "Grabada con el GPS", summary },
+    values: {
+      name: `${activityOf(data.activity).label} · ${fmtDate(isoDate)}`,
+      date: isoDate,
+      activity: data.activity,
+      durationMin: data.movingMin,
+      notes: "",
+      folderId: null,
+    },
+    folders,
+  });
+  if (!result) return drawRecord(); // sigue en pausa: puedes reanudar o terminar otra vez
+  await resolveFolder(result);
+  const route = {
+    id: newId(),
+    ...result.values,
+    photoIds: await storeNewPhotos(result.newPhotos),
+    stageStarts,
+    dayNotes: {},
+    recorded: true,
+    points,
+  };
+  await saveRoute(route);
+  routes.push(route);
+  await rec.discard();
+  drawRecordingOnMap();
+  showDetail(route);
+  ensureGeo(route).then(() => { updateCollectionCard(); announceAchievements(); });
+}
+
 // ======================= Logros =======================
 // album (opcional) ya trae cuántas regiones tiene cada país visitado
 async function achievementsNow(album) {
@@ -659,6 +818,8 @@ async function init() {
   // No esperamos al mapa: el panel aparece al instante y las rutas
   // se dibujan en cuanto el mapa termine de cargar (ver map.on("load"))
   showHome();
+  // Una grabación a medias (la app se cerró o se recargó la página): se retoma
+  if (await rec.restore()) showRecord();
   // Rutas guardadas antes de existir el álbum: calculamos su país y región poco a poco
   for (const r of routes) await ensureGeo(r);
   updateCollectionCard();
@@ -675,6 +836,7 @@ init();
 
 // App instalable (PWA): el service worker guarda la app para abrirla sin conexión.
 // Solo en la versión publicada: en desarrollo, la caché haría que no vieras tus cambios.
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
+// En la app de Android no hace falta: los archivos ya van dentro de la app.
+if ("serviceWorker" in navigator && import.meta.env.PROD && !isNativeApp()) {
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
 }

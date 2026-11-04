@@ -43,8 +43,10 @@ export function renderHome(panel, state, handlers) {
   panel.innerHTML = `
     <header class="panel-header">
       <h1>Trail Globe</h1>
-      <button class="btn primary" data-action="add">+ Añadir ruta</button>
+      <button class="btn secondary" data-action="add" title="Añadir una ruta desde un archivo GPX o KML">Importar</button>
+      <button class="btn primary rec-cta" data-action="record"><span class="rec-dot"></span>Grabar</button>
     </header>
+    ${state.recBanner ?? ""}
     <label class="search">
       ${ICON_SEARCH}
       <input type="search" placeholder="Buscar ruta, lugar o país…" value="${esc(filters.query)}" aria-label="Buscar">
@@ -66,6 +68,8 @@ export function renderHome(panel, state, handlers) {
 
   panel.querySelector('[data-action="demo"]').addEventListener("click", handlers.onDemo);
   panel.querySelector('[data-action="add"]').addEventListener("click", handlers.onAdd);
+  panel.querySelector('[data-action="record"]').addEventListener("click", handlers.onRecord);
+  panel.querySelector('[data-action="recording"]')?.addEventListener("click", handlers.onRecord);
   panel.querySelector('[data-action="album"]').addEventListener("click", handlers.onAlbum);
   for (const b of panel.querySelectorAll("[data-tab]")) {
     b.addEventListener("click", () => handlers.onTab(b.dataset.tab));

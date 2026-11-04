@@ -7,13 +7,18 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "build:geo": "node scripts/build-geo.mjs"
+    "build:geo": "node scripts/build-geo.mjs",
+    "android": "vite build && cap sync android && cap open android"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
     "mapshaper": "^0.7.101",
     "vite": "^8.3.0"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.3.1",
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
     "idb-keyval": "^6.3.0",
     "maplibre-gl": "^6.16.0"
   }

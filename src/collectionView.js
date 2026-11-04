@@ -11,7 +11,7 @@ import { activityOf } from "./activities.js";
 import { computeStats } from "./stats.js";
 import { loadRegions, loadCountries } from "./geo.js";
 import { isSpecial } from "./album.js";
-import { fmtKm, fmtM, fmtDate, esc } from "./format.js";
+import { fmtKm, fmtM, fmtDate, esc, backButton } from "./format.js";
 
 // Niveles de insignia según el número de rutas en la región
 const TIERS = [
@@ -42,7 +42,7 @@ const WORLD_VIEW = [-170, -56, 190, 80];
 export async function renderCollection(root, state, h) {
   const { album } = state;
   if (!album.countries.length) {
-    root.innerHTML = `${topBar([])}<div class="col-empty">Tu colección está vacía. Sube rutas y aquí irán apareciendo los países y regiones por los que has pasado.</div>`;
+    root.innerHTML = `${topBar("world")}<div class="col-empty">Tu colección está vacía. Sube rutas y aquí irán apareciendo los países y regiones por los que has pasado.</div>`;
     root.onclick = (e) => e.target.closest("[data-close]") && h.onClose();
     return;
   }
@@ -71,14 +71,8 @@ export async function renderCollection(root, state, h) {
     map = countriesSvg(world.features, album, null);
   }
 
-  const crumbs = [
-    level !== "world" && ["Colección", "data-world"],
-    level === "country" && [continent, `data-continent="${esc(continent)}"`],
-  ].filter(Boolean);
-  const current = level === "world" ? "Colección" : level === "continent" ? continent : country.name;
-
   root.innerHTML = `
-    ${topBar(crumbs, current)}
+    ${topBar(level, continent, country)}
     <div class="col-layout">
       <aside class="col-side">${level === "world" ? continentList(album, world) : countryList(album, continent, country)}</aside>
       <main class="col-main">
@@ -135,15 +129,25 @@ function totals(routes) {
   return `${plural(routes.length, "ruta", "rutas")} · ${fmtKm(km)} · +${fmtM(gain)} m`;
 }
 
-// Migas de pan: Globo › Colección › Europa › España (las anteriores se pueden pulsar)
-function topBar(links, current = "Colección") {
+// Barra superior: botón grande para subir un nivel, migas de pan para orientarte
+// (Colección › Europa › España) y una X para cerrar la colección desde cualquier nivel
+function topBar(level, continent, country) {
+  const back = level === "country" ? backButton(continent, `data-continent="${esc(continent)}"`)
+    : level === "continent" ? backButton("Mundo", "data-world")
+    : backButton("Globo", "data-close");
+  const crumbs = [
+    level === "world" ? `<strong>Colección</strong>` : `<button class="crumb" data-world>Colección</button>`,
+    level === "continent" && `<strong>${esc(continent)}</strong>`,
+    level === "country" && `<button class="crumb" data-continent="${esc(continent)}">${esc(continent)}</button>`,
+    level === "country" && `<strong>${esc(country.name)}</strong>`,
+  ].filter(Boolean);
   return `
     <div class="col-top">
-      <nav class="crumbs">
-        <button class="crumb" data-close>Globo</button>
-        ${links.map(([label, attr]) => `<span>›</span><button class="crumb" ${attr}>${esc(label)}</button>`).join("")}
-        <span>›</span><strong>${esc(current)}</strong>
-      </nav>
+      ${back}
+      <nav class="crumbs">${crumbs.join("<span>›</span>")}</nav>
+      <button class="col-close" data-close aria-label="Cerrar colección" title="Cerrar colección">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
     </div>`;
 }
 
@@ -178,7 +182,6 @@ function countryList(album, continent, current) {
   const group = album.continents.find((g) => g.name === continent);
   return `
     ${summary(album)}
-    <button class="col-back" data-world>← Todos los continentes</button>
     <div class="col-group">${esc(continent)}</div>
     ${group ? group.countries.map((c) => `
       <button class="col-country${c.iso === current?.iso ? " on" : ""}" data-country="${c.iso}">

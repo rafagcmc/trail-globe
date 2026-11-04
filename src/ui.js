@@ -5,13 +5,30 @@
 import { ACTIVITIES, activityOf } from "./activities.js";
 import { applyFilters, periodOptions, countryOptions, hasActiveFilters } from "./filters.js";
 import { computeStats } from "./stats.js";
-import { fmtKm, fmtM, fmtDate, esc } from "./format.js";
+import { fmtKm, fmtM, fmtDate, esc, backButton } from "./format.js";
+import { placesOf } from "./album.js";
 import { releasePhotos } from "./detail.js";
 
 const ICON_SEARCH = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 const ICON_FOLDER = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
 const CHEVRON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
+
+// Insignia hexagonal con una montaña: el mismo dibujo que las insignias de la colección
+const ICON_BADGE = `<svg class="cc-icon" width="40" height="44" viewBox="0 0 104 112" aria-hidden="true"><polygon points="52,4 97,30 97,82 52,108 7,82 7,30" fill="#e8890c"/><polygon points="52,13 89,34.5 89,77.5 52,99 15,77.5 15,34.5" fill="#fff4d6"/><path d="M26 74 L42 50 L50 60 L62 40 L80 74 Z" fill="#e8890c"/></svg>`;
+
+// Resumen de la colección para la tarjeta de inicio: países y regiones (insignias) visitados
+export function collectionSummary(routes) {
+  const countries = new Set(), regions = new Set();
+  for (const r of routes) {
+    const p = placesOf(r);
+    for (const c of p.countries) countries.add(c.iso);
+  }
+  // Igual que en la colección: solo cuentan las regiones de los países que cuentan
+  for (const r of routes) for (const g of placesOf(r).regions) if (countries.has(g.iso)) regions.add(g.id);
+  if (!countries.size) return routes.length ? "Calculando países y regiones…" : "Colecciona países y regiones con tus rutas";
+  return `${countries.size} ${countries.size === 1 ? "país" : "países"} · ${regions.size} ${regions.size === 1 ? "insignia" : "insignias"}`;
+}
 
 const stat = (value, label) =>
   `<div class="stat"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`;
@@ -33,10 +50,14 @@ export function renderHome(panel, state, handlers) {
       <input type="search" placeholder="Buscar ruta, lugar o país…" value="${esc(filters.query)}" aria-label="Buscar">
     </label>
     <div class="stat-row" id="totals"></div>
+    <button class="collection-card" data-action="album">
+      ${ICON_BADGE}
+      <span class="cc-text"><strong>Mi colección</strong><span class="cc-sub">${esc(collectionSummary(routes))}</span></span>
+      <span class="cc-open">Abrir ${CHEVRON}</span>
+    </button>
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="list" aria-selected="${tab === "list"}">Lista</button>
       <button role="tab" data-tab="folders" aria-selected="${tab === "folders"}">Carpetas</button>
-      <button role="tab" data-action="album">Álbum</button>
     </div>
     <div id="homeContent"></div>
     <footer class="panel-foot">
@@ -168,7 +189,7 @@ export function renderFolder(panel, { folder, routes }, handlers) {
   const { onBack, onOpen, onRename, onDelete, onVisibleChange, onAddExisting, onRemoveRoute } = handlers;
   releasePhotos();
   panel.innerHTML = `
-    <button class="link-back" data-action="back">← Carpetas</button>
+    ${backButton("Carpetas")}
     <div class="detail-title"><h2>${esc(folder ? folder.name : "Sin carpeta")}</h2></div>
     <div class="stat-row">${totalsHtml(routes)}</div>
     ${folder ? `

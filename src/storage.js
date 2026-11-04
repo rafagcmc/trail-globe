@@ -5,6 +5,7 @@
 // Por qué no localStorage: solo admite unos 5 MB, y un GPX largo
 // puede tener decenas de miles de puntos (y las fotos pesan mucho más).
 
+import { newId } from "./id.js";
 import { createStore, get, set, del, delMany, values } from "idb-keyval";
 
 // Dos bases de datos separadas: rutas y fotos. Así cargar la lista de rutas
@@ -43,7 +44,7 @@ export async function deleteRoute(id) {
 }
 
 export async function savePhoto(blob) {
-  const id = crypto.randomUUID();
+  const id = newId();
   await set(id, blob, photoStore);
   return id;
 }

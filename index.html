@@ -2,7 +2,15 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Tu diario de rutas de senderismo, bici y Camino sobre un globo 3D." />
+    <meta name="theme-color" content="#ffffff" />
+    <!-- Instalable como app (PWA): icono, nombre y pantalla completa en el móvil -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Trail Globe</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,8 +19,12 @@
   <body>
     <div id="map"></div>
 
-    <!-- El contenido del panel lo pinta ui.js según la vista (inicio o detalle) -->
-    <aside id="panel"></aside>
+    <!-- El contenido del panel lo pinta ui.js según la vista (inicio o detalle).
+         En el móvil, #sheet es una hoja que se arrastra desde abajo (ver sheet.js) -->
+    <aside id="sheet">
+      <div class="sheet-handle" aria-hidden="true"><span></span></div>
+      <div id="panel"></div>
+    </aside>
 
     <input id="fileInput" type="file" accept=".gpx,.kml" hidden />
     <dialog id="routeDialog"></dialog>

@@ -16,7 +16,7 @@ import {
 import { resizeImage } from "./photos.js";
 import { activityOf } from "./activities.js";
 import { fmtKm, fmtM, fmtDuration } from "./format.js";
-import { renderHome, renderFolder } from "./ui.js";
+import { renderHome, renderFolder, collectionSummary } from "./ui.js";
 import { renderDetail } from "./detail.js";
 import { detectStageStarts, cleanStarts, dayRanges, cumulativeKm, indexAtKm } from "./stages.js";
 import { openRouteDialog } from "./routeDialog.js";
@@ -24,6 +24,8 @@ import { pickRoutes } from "./routePicker.js";
 import { locateRoute, GEO_VERSION } from "./geo.js";
 import { buildAlbum } from "./album.js";
 import { renderCollection } from "./collectionView.js";
+import { initSheet } from "./sheet.js";
+import { newId } from "./id.js";
 
 setWorkerUrl(workerUrl);
 
@@ -136,6 +138,15 @@ const ui = {
 };
 
 const panel = document.getElementById("panel");
+const sheet = initSheet(document.getElementById("sheet"), document.querySelector(".sheet-handle"));
+
+// Margen para encuadrar rutas: que no queden debajo del panel (izquierda en el
+// ordenador, hoja inferior en el móvil)
+function mapPadding() {
+  return sheet.isMobile()
+    ? { top: 48, bottom: sheet.height() + 24, left: 32, right: 32 }
+    : { top: 80, bottom: 80, left: 420, right: 80 };
+}
 const fileInput = document.getElementById("fileInput");
 const toast = document.getElementById("toast");
 
@@ -200,8 +211,7 @@ function showCursor(point) {
 function flyToRoute(route, points = route.points) {
   const bounds = new LngLatBounds();
   for (const p of points) bounds.extend([p.lon, p.lat]);
-  // Margen izquierdo grande para que el panel no tape la ruta
-  map.fitBounds(bounds, { padding: { top: 80, bottom: 80, left: 420, right: 80 }, pitch: 50, duration: 2500 });
+  map.fitBounds(bounds, { padding: mapPadding(), pitch: 50, duration: 2500 });
 }
 
 function showError(message) {
@@ -221,6 +231,7 @@ function setShown(list) {
 
 function showHome(options = {}) {
   selectedId = null;
+  panel.scrollTop = 0;
   ui.folderId = undefined;
   renderHome(panel, { routes, folders, filters: ui.filters, tab: ui.tab, ...options }, {
     onAdd: () => fileInput.click(),
@@ -241,6 +252,7 @@ function showHome(options = {}) {
 // id = carpeta, o null para las rutas "Sin carpeta"
 function showFolder(id) {
   selectedId = null;
+  panel.scrollTop = 0;
   ui.folderId = id;
   const folder = id ? folderById(id) : null;
   renderFolder(panel, { folder, routes: routes.filter((r) => (r.folderId ?? null) === id) }, {
@@ -290,6 +302,9 @@ function showDetail(route, { day = -1, editing = false, fly = true } = {}) {
   showStageOnMap(route, editing ? -1 : day);
   showCursor(null);
   const days = dayRanges(route.points, route.stageStarts);
+  // En el móvil, al abrir una ruta la hoja se queda a media altura: ves la ruta y sus datos
+  if (fly && sheet.isMobile()) sheet.setState(1);
+  if (fly) panel.scrollTop = 0; // una ruta nueva se abre desde arriba
   if (fly) flyToRoute(route, day >= 0 && days[day] ? route.points.slice(days[day].start, days[day].end + 1) : route.points);
 
   // "Volver" lleva a donde estabas: la carpeta abierta o la lista
@@ -337,7 +352,7 @@ function showDetail(route, { day = -1, editing = false, fly = true } = {}) {
 
 // ======================= Acciones =======================
 async function createFolder(name) {
-  const folder = { id: crypto.randomUUID(), name };
+  const folder = { id: newId(), name };
   await saveFolder(folder);
   folders.push(folder);
   return folder;
@@ -407,7 +422,7 @@ fileInput.addEventListener("change", async () => {
   await resolveFolder(result);
 
   const route = {
-    id: crypto.randomUUID(), // identificador único generado por el navegador
+    id: newId(), // identificador único generado por el navegador
     ...result.values,
     photoIds: await storeNewPhotos(result.newPhotos),
     stageStarts,
@@ -523,7 +538,14 @@ document.addEventListener("keydown", (e) => {
 // el mundo para ver cómo queda la app llena. Se marcan con demo: true para poder
 // quitarlas de golpe sin tocar las tuyas.
 async function toggleDemo() {
-  if (routes.some((r) => r.demo)) return removeDemo();
+  try {
+    await (routes.some((r) => r.demo) ? removeDemo() : loadDemo());
+  } catch (err) {
+    showError(`No he podido cargar las rutas de ejemplo: ${err.message}`);
+  }
+}
+
+async function loadDemo() {
   let data;
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}demo/routes.json`);
@@ -533,14 +555,14 @@ async function toggleDemo() {
   }
   const folderIds = {};
   for (const name of new Set(data.routes.map((r) => r.folder).filter(Boolean))) {
-    const folder = { id: crypto.randomUUID(), name, demo: true };
+    const folder = { id: newId(), name, demo: true };
     await saveFolder(folder);
     folders.push(folder);
     folderIds[name] = folder.id;
   }
   const added = data.routes.map(({ folder, points, ...r }) => withDefaults({
     ...r,
-    id: crypto.randomUUID(),
+    id: newId(),
     demo: true,
     folderId: folder ? folderIds[folder] : null,
     points: points.map(([lon, lat, ele, t]) => ({ lon, lat, ele, t })),
@@ -558,6 +580,7 @@ async function toggleDemo() {
   showHome();
   map.flyTo({ center: [10, 25], zoom: 1.4, pitch: 0, bearing: 0, duration: 2000 }); // vista del globo entero
   for (const r of added) await ensureGeo(r);
+  updateCollectionCard();
 }
 
 async function removeDemo() {
@@ -583,6 +606,19 @@ async function init() {
   showHome();
   // Rutas guardadas antes de existir el álbum: calculamos su país y región poco a poco
   for (const r of routes) await ensureGeo(r);
+  updateCollectionCard();
+}
+
+// La tarjeta "Mi colección" del inicio se actualiza cuando terminan de calcularse los países
+function updateCollectionCard() {
+  const sub = panel.querySelector(".cc-sub");
+  if (sub) sub.textContent = collectionSummary(routes);
 }
 
 init();
+
+// App instalable (PWA): el service worker guarda la app para abrirla sin conexión.
+// Solo en la versión publicada: en desarrollo, la caché haría que no vieras tus cambios.
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+}

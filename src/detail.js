@@ -7,7 +7,7 @@
 import { activityOf } from "./activities.js";
 import { computeStats, elevationProfile } from "./stats.js";
 import { dayRanges, cumulativeKm, dayDate } from "./stages.js";
-import { fmtKm, fmtM, fmtSpeed, fmtDuration, fmtDate, esc } from "./format.js";
+import { fmtKm, fmtM, fmtSpeed, fmtDuration, fmtDate, esc, backButton } from "./format.js";
 import { getPhoto } from "./storage.js";
 
 const ICON_FOLDER = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
@@ -44,7 +44,7 @@ export async function renderDetail(panel, route, view, h) {
   const highlight = day ? [cum[day.start], cum[day.end]] : null;
 
   panel.innerHTML = `
-    <button class="link-back" data-action="back">← ${esc(view.editing ? "Volver a la ruta" : view.backLabel)}</button>
+    ${backButton(view.editing ? "Volver a la ruta" : view.backLabel)}
     <div class="detail-title">
       <h2>${esc(route.name)}</h2>
       <div class="meta">
@@ -151,7 +151,7 @@ function editorHtml(route, days, cum, profile, splitsKm, color) {
   return `
     <section class="stage-editor">
       <div class="section-label">Editar etapas</div>
-      <p class="help">Pulsa en el perfil el punto donde terminó cada día para dividir la ruta. Mientras mueves el ratón, el punto se marca en el mapa.</p>
+      <p class="help">Pulsa en el perfil el punto donde terminó cada día para dividir la ruta. Al pasar el dedo o el ratón por el perfil, el punto se marca en el mapa.</p>
       <div class="profile-wrap" id="stageProfile">
         ${profileSvg(profile, color, { splitsKm, tall: true })}
         <div class="cursor" hidden><span></span></div>
@@ -175,14 +175,14 @@ function bindEditor(panel, totalKm, h) {
     const rect = wrap.getBoundingClientRect();
     return Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1) * totalKm;
   };
-  wrap.addEventListener("mousemove", (e) => {
+  wrap.addEventListener("pointermove", (e) => {
     const km = kmAt(e);
     cursor.hidden = false;
     cursor.style.left = `${(km / totalKm) * 100}%`;
     cursor.querySelector("span").textContent = fmtKm(km);
     h.onHoverKm(km);
   });
-  wrap.addEventListener("mouseleave", () => {
+  wrap.addEventListener("pointerleave", () => {
     cursor.hidden = true;
     h.onHoverKm(null);
   });

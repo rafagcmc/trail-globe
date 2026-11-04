@@ -47,7 +47,12 @@ const CONTINENTS = {
 };
 const WORLD_VIEW = [-170, -56, 190, 80];
 
+// Desde dónde alejarse al subir de nivel: { continent } o { iso }
+let zoomOutFrom = null;
+let justZoomedIn = false;
+
 export async function renderCollection(root, state, h) {
+  const svgEl = () => root.querySelector(".col-map svg");
   const { album } = state;
   const view = state.view ?? "map";
   if (!album.routes.length) {
@@ -82,13 +87,13 @@ export async function renderCollection(root, state, h) {
   let head, map;
   if (level === "country") {
     const shapes = await loadRegions(country.iso);
-    head = `<h1>${esc(country.name)}</h1>
+    head = `<div class="col-title">${upButton(level, continent)}<h1>${esc(country.name)}</h1></div>
       <p>${country.visited} de ${country.regions.length} regiones · ${totals(countryRoutes(country))}</p>`;
     map = regionsSvg(shapes.features, country, state.regionId);
   } else if (level === "continent") {
     const group = album.continents.find((g) => g.name === continent);
     const total = world.features.filter((f) => f.properties.continent === continent).length;
-    head = `<h1>${esc(continent)}</h1>
+    head = `<div class="col-title">${upButton(level, continent)}<h1>${esc(continent)}</h1></div>
       <p>${group ? `${group.countries.length} de ${total} países · ${totals(continentRoutes(group))}` : "Aún no tienes rutas en este continente"}</p>`;
     map = countriesSvg(world.features, album, continent);
   } else {
@@ -121,13 +126,35 @@ export async function renderCollection(root, state, h) {
     if (d.close !== undefined) return h.onClose();
     if (d.view) return h.onNavigate({ view: d.view });
     if (d.drawerClose !== undefined) return nav({});
-    if (d.world !== undefined) return nav({ continent: null, iso: null });
-    if (d.continent) return nav({ continent: d.continent, iso: null });
-    if (d.country) return nav({ iso: d.country });
+    // Bajar de nivel: zoom sobre el continente o país y luego aparece el mapa nuevo.
+    // Subir: el mapa nuevo empieza enfocado donde estabas y se aleja (ver zoomOutFrom).
+    if (d.world !== undefined) {
+      zoomOutFrom = continent && { continent };
+      return nav({ continent: null, iso: null });
+    }
+    if (d.continent) {
+      if (level === "world") return zoomInto(svgEl(), continentRect(d.continent)).then(() => nav({ continent: d.continent, iso: null }));
+      if (level === "country" && d.continent === continent) zoomOutFrom = { iso: country.iso };
+      return nav({ continent: d.continent, iso: null });
+    }
+    if (d.country) {
+      if (level === "continent") return zoomInto(svgEl(), countryRect(svgEl(), d.country)).then(() => nav({ iso: d.country }));
+      return nav({ iso: d.country });
+    }
     if (d.specials !== undefined) return nav({ regionId: "specials" });
     if (d.region) return nav({ regionId: d.region });
     if (d.route) return h.onOpenRoute(d.route);
   };
+
+  // Venimos de un nivel inferior: el mapa empieza enfocado donde estábamos y se aleja
+  const svg = svgEl();
+  if (zoomOutFrom && svg) {
+    const from = level === "world" && zoomOutFrom.continent ? continentRect(zoomOutFrom.continent)
+      : level === "continent" && zoomOutFrom.iso ? countryRect(svg, zoomOutFrom.iso) : null;
+    if (from) zoomOut(svg, from);
+  } else if (svg && justZoomedIn) svg.classList.add("map-in"); // tras el zoom, el mapa nuevo aparece suave
+  zoomOutFrom = null;
+  justZoomedIn = false;
 
   // Al pasar el ratón por el mapa: nombre y número de rutas junto al cursor
   const tip = root.querySelector(".col-tooltip");
@@ -157,38 +184,26 @@ function totals(routes) {
   return `${plural(routes.length, "ruta", "rutas")} · ${fmtKm(km)} · +${fmtM(gain)} m`;
 }
 
-// Barra superior: botón grande para subir un nivel, migas de pan para orientarte
-// (Colección › Europa › España) y una X para cerrar la colección desde cualquier nivel
+// Barra superior: "Volver al globo" arriba a la izquierda (sale de la colección de un toque)
+// y las pestañas a la derecha. El botón para subir un nivel va encima del título del mapa.
 const VIEWS = [["map", "Mapa"], ["cards", "Cartas"], ["achievements", "Logros"]];
+const ICON_GLOBE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 12h17" stroke="currentColor" stroke-width="1.7"/></svg>`;
 
 function topBar(level, continent, country, view = "map") {
-  const back = view === "map" && level === "country" ? backButton(continent, `data-continent="${esc(continent)}"`)
-    : view === "map" && level === "continent" ? backButton("Mundo", "data-world")
-    : backButton("Globo", "data-close");
   const tabs = `<nav class="col-tabs">${VIEWS.map(([id, label]) =>
     `<button data-view="${id}"${id === view ? ' class="on" aria-current="page"' : ""}>${label}</button>`).join("")}</nav>`;
-  if (view !== "map") {
-    return `<div class="col-top">${back}${tabs}${closeButton}</div>`;
-  }
-  const crumbs = [
-    level === "world" ? `<strong>Colección</strong>` : `<button class="crumb" data-world>Colección</button>`,
-    level === "continent" && `<strong>${esc(continent)}</strong>`,
-    level === "country" && `<button class="crumb" data-continent="${esc(continent)}">${esc(continent)}</button>`,
-    level === "country" && `<strong>${esc(country.name)}</strong>`,
-  ].filter(Boolean);
   return `
     <div class="col-top">
-      ${back}
-      <nav class="crumbs">${crumbs.join("<span>›</span>")}</nav>
+      <button class="globe-btn" data-close>${ICON_GLOBE}<span>Volver al globo</span></button>
       ${tabs}
-      ${closeButton}
     </div>`;
 }
 
-const closeButton = `
-  <button class="col-close" data-close aria-label="Cerrar colección" title="Cerrar colección">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-  </button>`;
+// "‹ Europa" junto a "España", "‹ Mundo" junto a "Europa": sube un nivel con zoom hacia fuera.
+// Va en la misma línea que el título para que el mapa no salte de altura entre niveles.
+const upButton = (level, continent) => level === "country"
+  ? backButton(continent, `data-continent="${esc(continent)}"`)
+  : backButton("Mundo", "data-world");
 
 const summary = (album) => `
   <h2>Colección</h2>
@@ -485,4 +500,81 @@ function achievementTile(a, icon) {
           : `<span class="ach-progress"><i style="width:${pct}%"></i></span><span class="ach-when">${a.unit(a.value)} / ${a.unit(a.goal)}</span>`}
       </div>
     </article>`;
+}
+
+// ---------- Transiciones de zoom entre niveles ----------
+// Se anima el viewBox del SVG: es como mover la cámara sobre el mapa, sin perder nitidez.
+const ZOOM_MS = 480;
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+
+function animateViewBox(svg, from, to, ms) {
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    const frame = (now) => {
+      const t = Math.min(1, (now - t0) / ms), k = ease(t);
+      svg.setAttribute("viewBox", from.map((v, i) => (v + (to[i] - v) * k).toFixed(2)).join(" "));
+      t < 1 ? requestAnimationFrame(frame) : resolve();
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+// Encuadre [x, y, w, h] con margen y con la proporción del mapa, para que llene el hueco
+function framed([x, y, w, h], margin = 0.12) {
+  w = Math.max(w, 8); h = Math.max(h, 8);
+  const ratio = MAP_W / MAP_H;
+  const W = Math.max(w, h * ratio) * (1 + 2 * margin), H = W / ratio;
+  return [x + w / 2 - W / 2, y + h / 2 - H / 2, W, H];
+}
+
+async function zoomInto(svg, rect) {
+  if (!svg || !rect || reduceMotion()) return;
+  svg.classList.add("zooming"); // las etiquetas se apagan mientras tanto
+  await animateViewBox(svg, svg.getAttribute("viewBox").split(" ").map(Number), framed(rect), ZOOM_MS);
+  justZoomedIn = true;
+}
+
+function zoomOut(svg, rect) {
+  if (!rect || reduceMotion()) return;
+  const full = svg.getAttribute("viewBox").split(" ").map(Number);
+  const from = framed(rect);
+  svg.setAttribute("viewBox", from.join(" "));
+  svg.classList.add("zooming-out");
+  animateViewBox(svg, from, full, ZOOM_MS).then(() => svg.classList.remove("zooming-out"));
+}
+
+// Rectángulo de un continente en el mapa mundi (misma proyección que countriesSvg)
+function continentRect(name) {
+  const view = CONTINENTS[name]?.view;
+  if (!view) return null;
+  const [w, s, e, n] = WORLD_VIEW;
+  const top = mercY(n), bottom = mercY(s);
+  const k = Math.min(MAP_W / (e - w), MAP_H / (bottom - top));
+  const ox = (MAP_W - (e - w) * k) / 2, oy = (MAP_H - (bottom - top) * k) / 2;
+  const [cw, cs, ce, cn] = view;
+  const x = ox + (cw - w) * k, y = oy + (mercY(cn) - top) * k;
+  return [x, y, (ce - cw) * k, (mercY(cs) - mercY(cn)) * k];
+}
+
+// Rectángulo de un país en el mapa del continente: su trozo principal y lo que tiene cerca
+// (la España peninsular con Baleares, sin Canarias; Francia sin la Guayana)
+function countryRect(svg, iso) {
+  const path = svg?.querySelector(`[data-country="${iso}"]`);
+  if (!path) return null;
+  const boxes = path.getAttribute("d").split("M").filter(Boolean).map((part) => {
+    const nums = part.replace(/[LZ]/g, " ").trim().split(/\s+/).map(Number);
+    let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      a = Math.min(a, nums[i]); c = Math.max(c, nums[i]); b = Math.min(b, nums[i + 1]); d = Math.max(d, nums[i + 1]);
+    }
+    return [a, b, c, d];
+  });
+  const area = (q) => (q[2] - q[0]) * (q[3] - q[1]);
+  const main = boxes.reduce((x, y) => (area(y) > area(x) ? y : x));
+  const mw = main[2] - main[0], mh = main[3] - main[1], reach = Math.max(mw, mh) * 0.5;
+  const near = boxes.filter((q) => q[2] > main[0] - reach && q[0] < main[2] + reach && q[3] > main[1] - reach && q[1] < main[3] + reach);
+  const a = Math.min(...near.map((q) => q[0])), b = Math.min(...near.map((q) => q[1]));
+  const c = Math.max(...near.map((q) => q[2])), d = Math.max(...near.map((q) => q[3]));
+  return [a, b, c - a, d - b];
 }

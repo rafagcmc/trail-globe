@@ -464,10 +464,6 @@ button, input, textarea { font: inherit; color: inherit; }
 .col-close:hover { background: var(--surface-muted); }
 .col-top .back-btn { background: var(--surface); box-shadow: var(--shadow); }
 .col-top .back-btn:hover { background: var(--surface-muted); }
-.crumbs { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-muted); }
-.crumbs strong { color: var(--text); font-size: 18px; }
-.crumb { padding: 0; border: none; background: none; color: var(--text-muted); font-weight: 500; cursor: pointer; }
-.crumb:hover { color: var(--text); }
 
 .col-layout { flex: 1; min-height: 0; display: flex; gap: 24px; position: relative; }
 
@@ -659,8 +655,6 @@ button, input, textarea { font: inherit; color: inherit; }
   /* Colección: mapa arriba y lista debajo; el panel de la región, a pantalla casi completa */
   #album { padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
   .col-top { margin-bottom: 8px; }
-  .crumbs { flex-wrap: wrap; font-size: 13px; }
-  .crumbs strong { font-size: 16px; }
   .col-layout { gap: 12px; }
   .col-main { order: 1; flex: none; }
   .col-side { order: 2; max-height: none; overflow: visible; padding: 16px; }
@@ -730,9 +724,6 @@ button, input, textarea { font: inherit; color: inherit; }
 .cc-sub { font-size: 12px; color: var(--text-muted); }
 .cc-open { display: flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; color: #b8660a; }
 
-@media (max-width: 720px) {
-  .col-top .crumbs { display: none; } /* en el móvil sobran: el botón Volver y el título bastan */
-}
 
 /* ---------- Cartas (una por ruta; el marco es del color de su rareza) ---------- */
 .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -868,11 +859,10 @@ button, input, textarea { font: inherit; color: inherit; }
   .cv-main { overflow: visible; }
 }
 @media (max-width: 720px) {
-  /* En el móvil las pestañas bajan a su propia fila, a todo el ancho: el botón Volver conserva su texto */
+  /* En el móvil: arriba "Volver al globo"; debajo, las pestañas a todo el ancho */
   .col-top { flex-wrap: wrap; gap: 8px; }
-  .col-top .col-close { margin-left: auto; }
   .col-tabs { order: 3; flex: 1 0 100%; margin-left: 0; }
-  .col-tabs button { flex: 1; padding: 0 6px; }
+  .col-tabs button { flex: 1; padding: 0 4px; }
   /* Filtros de rareza en fila, como fichas: la lista de cartas empieza enseguida */
   .cv-side { padding: 14px; }
   .rar-filters { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -889,3 +879,27 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 
 .rar-chip { gap: 6px; color: var(--rc); font-weight: 600; }
+
+/* Zoom entre niveles de la colección */
+.col-map svg .col-label { transition: opacity 0.2s; }
+.col-map svg.zooming .col-label, .col-map svg.zooming-out .col-label { opacity: 0; }
+.col-map svg.zooming { pointer-events: none; }
+.col-map svg.map-in { animation: map-in 0.28s ease-out; }
+@keyframes map-in { from { opacity: 0; } }
+
+/* Botón "Volver al globo": mismo tamaño que Volver, con el globo como icono */
+.globe-btn {
+  display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+  height: 38px; padding: 0 16px 0 12px;
+  border: none; border-radius: 19px;
+  background: var(--text); color: #fff;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s;
+}
+.globe-btn:hover { background: #3a3f3c; }
+
+/* Botón para subir de nivel, a la izquierda del título del mapa */
+.col-title { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.col-title h1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-head .back-btn { align-self: center; background: var(--surface); box-shadow: var(--shadow); }
+.col-head .back-btn:hover { background: var(--surface-muted); }

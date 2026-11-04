@@ -498,6 +498,8 @@ function ensureGeo(route) {
 }
 
 async function openAlbum() {
+  // Una entrada en el historial: el gesto "atrás" del móvil cierra la colección en vez de salir de la app
+  if (albumEl.hidden && !history.state?.collection) history.pushState({ collection: true }, "");
   albumEl.hidden = false;
   albumEl.innerHTML = `<p class="album-loading">Preparando la colección…</p>`;
   await Promise.all(routes.map(ensureGeo));
@@ -524,9 +526,13 @@ function drawCollection() {
   });
 }
 
-function closeAlbum() {
+function closeAlbum({ fromHistory = false } = {}) {
   albumEl.hidden = true;
+  if (!fromHistory && history.state?.collection) history.back();
 }
+window.addEventListener("popstate", () => {
+  if (!albumEl.hidden) closeAlbum({ fromHistory: true });
+});
 
 // Teclado: Esc cierra el panel de la región, luego sube un nivel (país → continente →
 // mundo) y por último cierra la colección

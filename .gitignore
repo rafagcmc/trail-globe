@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Descargas de Natural Earth (las regenera npm run build:geo)
+scripts/.cache

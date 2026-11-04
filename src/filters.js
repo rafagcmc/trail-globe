@@ -1,17 +1,22 @@
-// Filtrado de rutas: buscador, tipo de actividad y periodo de fechas
+// Filtrado de rutas: buscador, tipo de actividad, país y periodo de fechas
 
 // Quita acentos y pasa a minúsculas: así "penalara" encuentra "Peñalara"
 const normalize = (s) => (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function applyFilters(routes, { query, activity, period }) {
+// Texto en el que busca el buscador: nombre, notas y los lugares por los que pasa
+const searchText = (r) =>
+  normalize([r.name, r.notes, ...(r.geo?.countries ?? []).map((c) => c.name), ...(r.geo?.regions ?? []).map((g) => g.name)].join(" "));
+
+export function applyFilters(routes, { query, activity, period, country = "all" }) {
   const q = normalize(query.trim());
   const now = Date.now();
 
   return routes.filter((r) => {
     if (activity !== "all" && r.activity !== activity) return false;
-    if (q && !normalize(r.name).includes(q) && !normalize(r.notes).includes(q)) return false;
+    if (q && !searchText(r).includes(q)) return false;
+    if (country !== "all" && !r.geo?.countries.some((c) => c.iso === country)) return false;
 
     if (period !== "all") {
       if (!r.date) return false;
@@ -35,4 +40,12 @@ export function periodOptions(routes) {
   ];
 }
 
-export const hasActiveFilters = (f) => f.query.trim() !== "" || f.activity !== "all" || f.period !== "all";
+// Opciones del filtro de país: los países por los que pasan tus rutas
+export function countryOptions(routes) {
+  const names = new Map();
+  for (const r of routes) for (const c of r.geo?.countries ?? []) names.set(c.iso, c.name);
+  return [...names].sort((a, b) => a[1].localeCompare(b[1], "es"));
+}
+
+export const hasActiveFilters = (f) =>
+  f.query.trim() !== "" || f.activity !== "all" || f.period !== "all" || f.country !== "all";

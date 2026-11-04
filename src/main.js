@@ -1,4 +1,6 @@
-import { Map, NavigationControl, LngLatBounds, setWorkerUrl } from "maplibre-gl";
+// "Map as MapLibreMap": la clase del mapa se llama Map, igual que el Map de JavaScript
+// (diccionario clave → valor). La renombramos para poder usar los dos sin confusión.
+import { Map as MapLibreMap, NavigationControl, LngLatBounds, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 // MapLibre procesa las teselas en un "worker" (un hilo aparte para no congelar la página).
 // Vite reempaqueta la librería y MapLibre deja de encontrar ese archivo, así que le
@@ -19,13 +21,16 @@ import { renderDetail } from "./detail.js";
 import { detectStageStarts, cleanStarts, dayRanges, cumulativeKm, indexAtKm } from "./stages.js";
 import { openRouteDialog } from "./routeDialog.js";
 import { pickRoutes } from "./routePicker.js";
+import { locateRoute, GEO_VERSION } from "./geo.js";
+import { buildAlbum } from "./album.js";
+import { renderCollection } from "./collectionView.js";
 
 setWorkerUrl(workerUrl);
 
 // ======================= Mapa =======================
 // Estilo vectorial de OpenFreeMap (gratis, sin clave). El mapa llega como
 // formas y textos y se dibuja en tu pantalla: nítido a cualquier zoom.
-const map = new Map({
+const map = new MapLibreMap({
   container: "map",
   style: "https://tiles.openfreemap.org/styles/liberty",
   center: [-3.7, 40.4], // [longitud, latitud]: empezamos sobre la península
@@ -127,7 +132,7 @@ let shownRoutes = []; // las rutas que se ven ahora en el mapa (según filtros o
 const ui = {
   tab: "list", // "list" | "folders"
   folderId: undefined, // carpeta abierta: id, null = "Sin carpeta", undefined = ninguna
-  filters: { query: "", activity: "all", period: "all" },
+  filters: { query: "", activity: "all", period: "all", country: "all" },
 };
 
 const panel = document.getElementById("panel");
@@ -222,6 +227,9 @@ function showHome(options = {}) {
     onOpen: showDetail,
     onTab: (tab, opts) => { ui.tab = tab; showHome(opts); },
     onVisibleChange: setShown,
+    onAlbum: () => openAlbum(),
+    onDemo: toggleDemo,
+    hasDemo: routes.some((r) => r.demo),
     onOpenFolder: showFolder,
     onNewFolder: async () => {
       const name = prompt("Nombre de la carpeta:")?.trim();
@@ -409,6 +417,7 @@ fileInput.addEventListener("change", async () => {
   await saveRoute(route);
   routes.push(route);
   showDetail(route);
+  ensureGeo(route); // en segundo plano: en qué país y región está (para el álbum y los filtros)
 });
 
 async function editRoute(route) {
@@ -448,6 +457,119 @@ function withDefaults(route) {
   };
 }
 
+// ======================= Colección =======================
+// (El elemento sigue llamándose #album y la función openAlbum por historia del proyecto)
+const albumEl = document.getElementById("album");
+// iso = país que se ve; regionId = región con el panel desplegado (o "specials", o null)
+const collection = { data: null, continent: null, iso: null, regionId: null };
+
+// Calcula (una vez) por qué países y regiones pasa una ruta y lo guarda con ella
+const geoJobs = new Map();
+function ensureGeo(route) {
+  if (route.geo?.version === GEO_VERSION) return Promise.resolve();
+  if (!geoJobs.has(route.id)) {
+    geoJobs.set(route.id, locateRoute(route.points)
+      .then(async (geo) => { route.geo = geo; await saveRoute(route); })
+      .catch(() => {}) // sin conexión: se reintentará la próxima vez
+      .finally(() => geoJobs.delete(route.id)));
+  }
+  return geoJobs.get(route.id);
+}
+
+async function openAlbum() {
+  albumEl.hidden = false;
+  albumEl.innerHTML = `<p class="album-loading">Preparando la colección…</p>`;
+  await Promise.all(routes.map(ensureGeo));
+  collection.data = await buildAlbum(routes);
+  drawCollection();
+}
+
+function drawCollection() {
+  const { data, continent, iso, regionId } = collection;
+  return renderCollection(albumEl, { album: data, continent, iso, regionId }, {
+    onClose: closeAlbum,
+    // Moverse entre niveles (mundo → continente → país) o abrir el panel de una región
+    onNavigate: (next) => {
+      Object.assign(collection, next);
+      drawCollection();
+    },
+    onOpenRoute: (id) => {
+      closeAlbum();
+      const route = routes.find((r) => r.id === id);
+      if (route) showDetail(route);
+    },
+  });
+}
+
+function closeAlbum() {
+  albumEl.hidden = true;
+}
+
+// Teclado: Esc cierra el panel de la región, luego sube un nivel (país → continente →
+// mundo) y por último cierra la colección
+document.addEventListener("keydown", (e) => {
+  if (albumEl.hidden || document.querySelector("dialog[open]") || e.key !== "Escape") return;
+  if (collection.regionId) collection.regionId = null;
+  else if (collection.iso) {
+    collection.continent = collection.data.countries.find((c) => c.iso === collection.iso)?.continent ?? null;
+    collection.iso = null;
+  } else if (collection.continent) collection.continent = null;
+  else return closeAlbum();
+  drawCollection();
+});
+
+// ======================= Rutas de ejemplo =======================
+// public/demo/routes.json (generado con scripts/build-demo.py) trae ~60 rutas por todo
+// el mundo para ver cómo queda la app llena. Se marcan con demo: true para poder
+// quitarlas de golpe sin tocar las tuyas.
+async function toggleDemo() {
+  if (routes.some((r) => r.demo)) return removeDemo();
+  let data;
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}demo/routes.json`);
+    data = await res.json();
+  } catch (err) {
+    return showError(`No he podido cargar las rutas de ejemplo: ${err.message}`);
+  }
+  const folderIds = {};
+  for (const name of new Set(data.routes.map((r) => r.folder).filter(Boolean))) {
+    const folder = { id: crypto.randomUUID(), name, demo: true };
+    await saveFolder(folder);
+    folders.push(folder);
+    folderIds[name] = folder.id;
+  }
+  const added = data.routes.map(({ folder, points, ...r }) => withDefaults({
+    ...r,
+    id: crypto.randomUUID(),
+    demo: true,
+    folderId: folder ? folderIds[folder] : null,
+    points: points.map(([lon, lat, ele, t]) => ({ lon, lat, ele, t })),
+  }));
+  for (const r of added) {
+    // Rutas de varios días: la duración es la suma de los días (sin contar las noches)
+    if (r.stageStarts.length) {
+      r.durationMin = dayRanges(r.points, r.stageStarts)
+        .map((d) => computeStats(r.points.slice(d.start, d.end + 1)).durationMin ?? 0)
+        .reduce((a, b) => a + b, 0);
+    }
+    await saveRoute(r);
+  }
+  routes.push(...added);
+  showHome();
+  map.flyTo({ center: [10, 25], zoom: 1.4, pitch: 0, bearing: 0, duration: 2000 }); // vista del globo entero
+  for (const r of added) await ensureGeo(r);
+}
+
+async function removeDemo() {
+  const demo = routes.filter((r) => r.demo);
+  if (!confirm(`¿Quitar las ${demo.length} rutas de ejemplo? Tus rutas no se tocan.`)) return;
+  for (const r of demo) await deleteRoute(r.id);
+  for (const f of folders.filter((f) => f.demo)) await deleteFolder(f.id);
+  routes = routes.filter((r) => !r.demo);
+  folders = folders.filter((f) => !f.demo);
+  showHome();
+}
+
 // ======================= Arranque =======================
 async function init() {
   try {
@@ -459,6 +581,8 @@ async function init() {
   // No esperamos al mapa: el panel aparece al instante y las rutas
   // se dibujan en cuanto el mapa termine de cargar (ver map.on("load"))
   showHome();
+  // Rutas guardadas antes de existir el álbum: calculamos su país y región poco a poco
+  for (const r of routes) await ensureGeo(r);
 }
 
 init();

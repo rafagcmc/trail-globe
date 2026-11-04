@@ -3,7 +3,7 @@
 // cuando el usuario pulsa algo. Así este archivo no sabe nada del mapa ni del guardado.
 
 import { ACTIVITIES, activityOf } from "./activities.js";
-import { applyFilters, periodOptions, hasActiveFilters } from "./filters.js";
+import { applyFilters, periodOptions, countryOptions, hasActiveFilters } from "./filters.js";
 import { computeStats } from "./stats.js";
 import { fmtKm, fmtM, fmtDate, esc } from "./format.js";
 import { releasePhotos } from "./detail.js";
@@ -30,17 +30,22 @@ export function renderHome(panel, state, handlers) {
     </header>
     <label class="search">
       ${ICON_SEARCH}
-      <input type="search" placeholder="Buscar ruta o notas…" value="${esc(filters.query)}" aria-label="Buscar">
+      <input type="search" placeholder="Buscar ruta, lugar o país…" value="${esc(filters.query)}" aria-label="Buscar">
     </label>
     <div class="stat-row" id="totals"></div>
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="list" aria-selected="${tab === "list"}">Lista</button>
       <button role="tab" data-tab="folders" aria-selected="${tab === "folders"}">Carpetas</button>
-      <button role="tab" disabled title="Próximamente">Álbum</button>
+      <button role="tab" data-action="album">Álbum</button>
     </div>
-    <div id="homeContent"></div>`;
+    <div id="homeContent"></div>
+    <footer class="panel-foot">
+      <button class="link" data-action="demo">${state.hasDemo ? "Quitar rutas de ejemplo" : "Cargar rutas de ejemplo"}</button>
+    </footer>`;
 
+  panel.querySelector('[data-action="demo"]').addEventListener("click", handlers.onDemo);
   panel.querySelector('[data-action="add"]').addEventListener("click", handlers.onAdd);
+  panel.querySelector('[data-action="album"]').addEventListener("click", handlers.onAlbum);
   for (const b of panel.querySelectorAll("[data-tab]")) {
     b.addEventListener("click", () => handlers.onTab(b.dataset.tab));
   }
@@ -68,6 +73,11 @@ export function renderHome(panel, state, handlers) {
         <option value="all">Actividad</option>
         ${Object.entries(ACTIVITIES).map(([k, a]) => `<option value="${k}">${a.label}</option>`).join("")}
       </select>
+      ${countryOptions(routes).length ? `
+        <select class="pill" data-filter="country" aria-label="País">
+          <option value="all">País</option>
+          ${countryOptions(routes).map(([iso, name]) => `<option value="${iso}">${esc(name)}</option>`).join("")}
+        </select>` : ""}
       <select class="pill" data-filter="period" aria-label="Fecha">
         ${periodOptions(routes).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}
       </select>
@@ -95,7 +105,7 @@ export function renderHome(panel, state, handlers) {
       visible,
       routes.length
         ? "Ninguna ruta coincide con los filtros."
-        : "Aún no tienes rutas. Pulsa <b>+ Añadir ruta</b> y sube un archivo GPX o KML."
+        : "Aún no tienes rutas. Pulsa <b>+ Añadir ruta</b> y sube un archivo GPX o KML, o carga las rutas de ejemplo para probar."
     );
     bindRouteItems(results, routes, handlers.onOpen);
     handlers.onVisibleChange(visible);
@@ -106,7 +116,7 @@ export function renderHome(panel, state, handlers) {
     sel.addEventListener("change", () => { filters[sel.dataset.filter] = sel.value; update(); });
   }
   clear.addEventListener("click", () => {
-    Object.assign(filters, { query: "", activity: "all", period: "all" });
+    Object.assign(filters, { query: "", activity: "all", period: "all", country: "all" });
     search.value = "";
     for (const sel of selects) sel.value = "all";
     update();
@@ -199,7 +209,9 @@ function totalsHtml(routes) {
     km += s.distanceKm;
     gain += s.gainM ?? 0;
   }
-  return stat(routes.length, "Rutas") + stat(fmtKm(km), "Distancia") + stat(`+${fmtM(gain)} m`, "Desnivel +");
+  // Con muchas rutas los totales crecen: sin decimales a partir de 100 km para que quepan
+  const kmText = km >= 100 ? `${fmtM(km)} km` : fmtKm(km);
+  return stat(routes.length, "Rutas") + stat(kmText, "Distancia") + stat(`${fmtM(gain)} m`, "Desnivel +");
 }
 
 function routeListHtml(routes, emptyText, { removable = false } = {}) {

@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:geo": "node scripts/build-geo.mjs"
   },
   "devDependencies": {
+    "mapshaper": "^0.7.101",
     "vite": "^8.3.0"
   },
   "dependencies": {

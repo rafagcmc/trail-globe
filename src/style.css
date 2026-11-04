@@ -83,7 +83,7 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 
 /* ---------- Datos ---------- */
-.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .stat {
   display: flex;
@@ -96,7 +96,7 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 .stat strong { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-row .stat strong { font-size: 15px; }
-.stat-row .stat { padding: 12px; }
+.stat-row .stat { padding: 12px 10px; min-width: 0; }
 .stat span { font-size: 12px; color: var(--text-muted); }
 
 /* ---------- Lista de rutas ---------- */
@@ -441,3 +441,184 @@ button, input, textarea { font: inherit; color: inherit; }
   font-size: 13px;
 }
 .stage-list span { flex: 1; color: var(--text-muted); font-size: 12px; }
+
+/* ---------- Colección: mapa de regiones, insignias y sellos ---------- */
+#album {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+  padding: 24px 32px;
+  background: var(--map);
+  display: flex;
+  flex-direction: column;
+}
+#album[hidden] { display: none; } /* "display: flex" anularía el atributo hidden */
+.album-loading, .col-empty { margin: 120px auto; max-width: 420px; text-align: center; color: var(--text-muted); line-height: 1.5; }
+
+.col-top { margin-bottom: 16px; }
+.crumbs { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-muted); }
+.crumbs strong { color: var(--text); font-size: 18px; }
+.crumb { padding: 0; border: none; background: none; color: var(--text-muted); font-weight: 500; cursor: pointer; }
+.crumb:hover { color: var(--text); }
+
+.col-layout { flex: 1; min-height: 0; display: flex; gap: 24px; position: relative; }
+
+/* Columna de países */
+.col-side {
+  width: 300px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.col-side h2 { margin: 0; font-size: 22px; }
+.col-sub { margin: 4px 0 12px; font-size: 12px; color: var(--text-muted); }
+.col-group { margin: 16px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.col-country {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.col-country:hover { background: var(--surface-muted); }
+.col-country.on { background: var(--surface-muted); }
+.col-country .row { display: flex; justify-content: space-between; font-size: 14px; }
+.col-country .row span { font-size: 12px; color: var(--text-muted); }
+.col-country.on strong { font-weight: 700; }
+.col-country .bar { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.col-country .bar i { display: block; height: 100%; background: var(--accent); }
+.col-specials {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1.5px solid #e8b45a;
+  border-radius: 10px;
+  background: #fffbf3;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.col-specials span { color: var(--text-muted); }
+
+/* Mapa */
+.col-main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+/* Con el panel de la región abierto, el mapa se aparta para que no quede tapado */
+.col-main { transition: margin-right 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.col-layout:has(.col-drawer.open) .col-main { margin-right: 424px; }
+.col-head h1 { margin: 0; font-size: 32px; }
+.col-head p { margin: 6px 0 0; font-size: 13px; color: var(--text-muted); }
+.col-map { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 12px 0; }
+.col-map svg { width: 100%; height: 100%; max-width: 900px; }
+.col-map path { stroke: #fff; stroke-width: 1.5; stroke-linejoin: round; cursor: pointer; transition: filter 0.15s; }
+.col-map path:hover { filter: brightness(0.92); }
+/* Mapa mundi y de continente: bordes finos; los países de contexto no se pueden pulsar */
+.world-map path, .continent-map path { stroke-width: 0.6; }
+.continent-map path { stroke-width: 0.9; }
+.col-map path.ctx { fill: #f1f3f0; stroke: #fff; cursor: default; }
+.col-map path.muted { cursor: default; }
+.col-map path.ctx:hover, .col-map path.muted:hover, .world-map path:hover { filter: none; }
+.world-map .continent { cursor: pointer; }
+.world-map .continent:hover path { filter: brightness(0.9); }
+.col-label {
+  font-size: 13px; font-weight: 600; text-anchor: middle; fill: var(--text);
+  paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; pointer-events: none;
+}
+.col-back { display: block; margin: 4px 0 0; padding: 0; border: none; background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
+.col-none { margin: 4px 12px; font-size: 13px; color: var(--text-muted); }
+.col-country.empty strong { font-weight: 500; color: var(--text-muted); }
+.col-map path.selected { stroke: var(--text); stroke-width: 2.5; }
+.col-map .inset { fill: none; stroke: #d3d8d1; stroke-dasharray: 4 4; }
+.col-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--text-muted); }
+.col-legend span { display: flex; align-items: center; gap: 6px; }
+.col-legend i { width: 14px; height: 14px; border-radius: 3px; }
+.col-tooltip {
+  position: absolute;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--text);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Panel que se despliega al pulsar una región */
+.col-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 400px;
+  overflow-y: auto;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14);
+  transform: translateX(calc(100% + 40px));
+  animation: none;
+}
+.col-drawer.open { transform: none; animation: drawer-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes drawer-in { from { transform: translateX(60px); opacity: 0; } }
+.drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.drawer-head h3 { margin: 0; font-size: 22px; }
+.drawer-head span { font-size: 12px; color: var(--text-muted); }
+.drawer-head button { border: none; background: var(--surface-muted); width: 30px; height: 30px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+
+.badge-block { display: flex; align-items: center; gap: 16px; margin: 18px 0 8px; padding: 14px; border-radius: 12px; background: var(--surface-muted); }
+.badge-block .badge { width: 84px; flex-shrink: 0; animation: badge-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes badge-pop { from { transform: scale(0.6) rotate(-12deg); opacity: 0; } }
+.badge-block div { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.badge-block strong { font-size: 15px; }
+.badge-block span, .badge-block small { font-size: 12px; color: var(--text-muted); }
+.tier-progress { height: 6px; margin-top: 4px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.tier-progress i { display: block; height: 100%; }
+
+.drawer-label { margin: 18px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.stamps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; }
+.stamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  animation: stamp-in 0.4s backwards;
+}
+/* Los sellos aparecen uno tras otro, como si los estamparan */
+.stamp:nth-child(2) { animation-delay: 0.05s; }
+.stamp:nth-child(3) { animation-delay: 0.1s; }
+.stamp:nth-child(4) { animation-delay: 0.15s; }
+.stamp:nth-child(5) { animation-delay: 0.2s; }
+.stamp:nth-child(n + 6) { animation-delay: 0.25s; }
+@keyframes stamp-in { from { transform: scale(1.4) rotate(var(--tilt)); opacity: 0; } }
+.stamp svg { width: 100%; max-width: 110px; transform: rotate(var(--tilt)); transition: transform 0.2s; font-family: Inter, sans-serif; }
+.stamp:hover svg { transform: rotate(0deg) scale(1.05); }
+.stamp span { max-width: 100%; font-size: 12px; font-weight: 500; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 1000px) {
+  #album { padding: 16px; overflow-y: auto; }
+  .col-layout { flex-direction: column; }
+  .col-side { width: auto; max-height: 220px; }
+  .col-map { min-height: 360px; }
+  .col-drawer { position: static; width: auto; transform: none; display: none; }
+  .col-drawer.open { display: block; }
+}
+
+/* Pie del panel: cargar / quitar las rutas de ejemplo */
+.panel-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
+.panel-foot .link { font-size: 12px; color: var(--text-muted); }
+.panel-foot .link:hover { color: var(--text); }

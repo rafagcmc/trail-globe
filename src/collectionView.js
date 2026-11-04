@@ -4,14 +4,22 @@
 //   País       → sus regiones; al pulsar una se despliega un panel con su insignia
 //                (que sube de nivel con más rutas) y un sello por cada ruta hecha allí
 //
-// state = { album, continent, iso, regionId }   (regionId = "specials" para las ediciones especiales)
+// Además del mapa hay otras dos vistas, con pestañas arriba:
+//   Cartas → todas tus rutas como cartas, filtrables por rareza
+//   Logros → retos desbloqueados y por desbloquear
+//
+// state = { album, achievements, view, rarity, continent, iso, regionId }
+//   view = "map" | "cards" | "achievements"; rarity = filtro de cartas (0-3 o null)
+//   regionId = "specials" para las ediciones especiales
 // Si hay iso estás en un país; si solo hay continent, en un continente; si no, en el mundo.
 
-import { activityOf } from "./activities.js";
 import { computeStats } from "./stats.js";
 import { loadRegions, loadCountries } from "./geo.js";
-import { isSpecial } from "./album.js";
 import { fmtKm, fmtM, fmtDate, esc, backButton } from "./format.js";
+import { cardHtml } from "./cards.js";
+import { RARITIES, rarityOf, gems } from "./rarity.js";
+import { CATEGORIES } from "./achievements.js";
+import { hexMedal } from "./medals.js";
 
 // Niveles de insignia según el número de rutas en la región
 const TIERS = [
@@ -41,9 +49,28 @@ const WORLD_VIEW = [-170, -56, 190, 80];
 
 export async function renderCollection(root, state, h) {
   const { album } = state;
-  if (!album.countries.length) {
-    root.innerHTML = `${topBar("world")}<div class="col-empty">Tu colección está vacía. Sube rutas y aquí irán apareciendo los países y regiones por los que has pasado.</div>`;
-    root.onclick = (e) => e.target.closest("[data-close]") && h.onClose();
+  const view = state.view ?? "map";
+  if (!album.routes.length) {
+    root.innerHTML = `${topBar("world", null, null, view)}<div class="col-empty">Tu colección está vacía. Sube rutas y aquí irán apareciendo tus cartas, los países y regiones por los que has pasado y tus logros.</div>`;
+    root.onclick = (e) => {
+      if (e.target.closest("[data-close]")) return h.onClose();
+      const v = e.target.closest("[data-view]");
+      if (v) h.onNavigate({ view: v.dataset.view });
+    };
+    return;
+  }
+  if (view !== "map") {
+    root.innerHTML = `${topBar("world", null, null, view)}
+      ${view === "cards" ? cardsView(album, state.rarity ?? null) : achievementsView(state.achievements)}`;
+    root.onclick = (e) => {
+      const el = e.target.closest("[data-close], [data-view], [data-rarity], [data-route]");
+      if (!el) return;
+      const d = el.dataset;
+      if (d.close !== undefined) return h.onClose();
+      if (d.view) return h.onNavigate({ view: d.view });
+      if (d.rarity !== undefined) return h.onNavigate({ rarity: d.rarity === "" || +d.rarity === state.rarity ? null : +d.rarity });
+      if (d.route) return h.onOpenRoute(d.route);
+    };
     return;
   }
   const world = await loadCountries();
@@ -72,7 +99,7 @@ export async function renderCollection(root, state, h) {
   }
 
   root.innerHTML = `
-    ${topBar(level, continent, country)}
+    ${topBar(level, continent, country, view)}
     <div class="col-layout">
       <aside class="col-side">${level === "world" ? continentList(album, world) : countryList(album, continent, country)}</aside>
       <main class="col-main">
@@ -88,10 +115,11 @@ export async function renderCollection(root, state, h) {
 
   // Delegación de eventos: un solo "escuchador" para toda la vista
   root.onclick = (e) => {
-    const el = e.target.closest("[data-close], [data-world], [data-continent], [data-country], [data-region], [data-route], [data-specials], [data-drawer-close]");
+    const el = e.target.closest("[data-close], [data-view], [data-world], [data-continent], [data-country], [data-region], [data-route], [data-specials], [data-drawer-close]");
     if (!el) return;
     const d = el.dataset;
     if (d.close !== undefined) return h.onClose();
+    if (d.view) return h.onNavigate({ view: d.view });
     if (d.drawerClose !== undefined) return nav({});
     if (d.world !== undefined) return nav({ continent: null, iso: null });
     if (d.continent) return nav({ continent: d.continent, iso: null });
@@ -131,10 +159,17 @@ function totals(routes) {
 
 // Barra superior: botón grande para subir un nivel, migas de pan para orientarte
 // (Colección › Europa › España) y una X para cerrar la colección desde cualquier nivel
-function topBar(level, continent, country) {
-  const back = level === "country" ? backButton(continent, `data-continent="${esc(continent)}"`)
-    : level === "continent" ? backButton("Mundo", "data-world")
+const VIEWS = [["map", "Mapa"], ["cards", "Cartas"], ["achievements", "Logros"]];
+
+function topBar(level, continent, country, view = "map") {
+  const back = view === "map" && level === "country" ? backButton(continent, `data-continent="${esc(continent)}"`)
+    : view === "map" && level === "continent" ? backButton("Mundo", "data-world")
     : backButton("Globo", "data-close");
+  const tabs = `<nav class="col-tabs">${VIEWS.map(([id, label]) =>
+    `<button data-view="${id}"${id === view ? ' class="on" aria-current="page"' : ""}>${label}</button>`).join("")}</nav>`;
+  if (view !== "map") {
+    return `<div class="col-top">${back}${tabs}${closeButton}</div>`;
+  }
   const crumbs = [
     level === "world" ? `<strong>Colección</strong>` : `<button class="crumb" data-world>Colección</button>`,
     level === "continent" && `<strong>${esc(continent)}</strong>`,
@@ -145,11 +180,15 @@ function topBar(level, continent, country) {
     <div class="col-top">
       ${back}
       <nav class="crumbs">${crumbs.join("<span>›</span>")}</nav>
-      <button class="col-close" data-close aria-label="Cerrar colección" title="Cerrar colección">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-      </button>
+      ${tabs}
+      ${closeButton}
     </div>`;
 }
+
+const closeButton = `
+  <button class="col-close" data-close aria-label="Cerrar colección" title="Cerrar colección">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+  </button>`;
 
 const summary = (album) => `
   <h2>Colección</h2>
@@ -330,7 +369,7 @@ function drawerHtml(album, country, regionId) {
   if (regionId === "specials") {
     return `
       ${drawerHead("Ediciones especiales", "Rutas que cruzan varias regiones o países")}
-      <div class="stamps">${album.specials.map((r) => stamp(r, true)).join("")}</div>`;
+      <div class="cards">${album.specials.map((r) => cardHtml(r, album.numbers.get(r.id))).join("")}</div>`;
   }
   const region = country.regions.find((r) => r.id === regionId);
   if (!region) return "";
@@ -351,8 +390,8 @@ function drawerHtml(album, country, regionId) {
       </div>
     </div>
     ${n ? `
-      <div class="drawer-label">Sellos · ${plural(n, "ruta", "rutas")}</div>
-      <div class="stamps">${region.routes.map((r) => stamp(r, isSpecial(r))).join("")}</div>` : ""}`;
+      <div class="drawer-label">Cartas · ${plural(n, "ruta", "rutas")}</div>
+      <div class="cards">${region.routes.map((r) => cardHtml(r, album.numbers.get(r.id))).join("")}</div>` : ""}`;
 }
 
 function drawerHead(title, sub) {
@@ -363,51 +402,87 @@ function drawerHead(title, sub) {
     </div>`;
 }
 
-const hexPoints = (cx, cy, r) =>
-  Array.from({ length: 6 }, (_, k) => {
-    const a = ((60 * k - 90) * Math.PI) / 180;
-    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
-  }).join(" ");
+// Insignia de región: la misma medalla hexagonal que los logros, del color de su nivel
+const badgeSvg = (tier) => tier
+  ? hexMedal({ color: tier.color, soft: tier.bg, icon: "peak", size: 84, cls: "badge" })
+  : hexMedal({ icon: "lock", locked: true, size: 84, cls: "badge" });
 
-function badgeSvg(tier) {
-  if (!tier) {
-    return `<svg class="badge" viewBox="0 0 104 112"><polygon points="${hexPoints(52, 56, 50)}" fill="#f4f5f3" stroke="#d9ddd7" stroke-width="2" stroke-dasharray="5 5"/>
-      <rect x="42" y="54" width="20" height="16" rx="3" fill="#d3d8d1"/><path d="M45 54 v-5 a7 7 0 0 1 14 0 v5" fill="none" stroke="#d3d8d1" stroke-width="3"/></svg>`;
-  }
-  return `<svg class="badge" viewBox="0 0 104 112"><polygon points="${hexPoints(52, 56, 52)}" fill="${tier.color}"/><polygon points="${hexPoints(52, 56, 44)}" fill="${tier.bg}"/>
-    <path d="M26 74 L42 50 L50 60 L62 40 L80 74 Z" fill="${tier.color}"/><path d="M58 46 L62 40 L66 46" fill="none" stroke="#fff" stroke-width="2"/></svg>`;
-}
-
-// Sello de una ruta: círculo "estampado" con su forma, fecha y kilómetros, un poco torcido
-function stamp(route, special) {
-  const color = activityOf(route.activity).color;
-  const km = fmtKm(computeStats(route.points).distanceKm).toUpperCase();
-  const date = route.date ? fmtDate(route.date).toUpperCase() : "SIN FECHA";
-  // Inclinación "aleatoria" pero estable: depende del id de la ruta
-  const tilt = ((parseInt(route.id.slice(0, 4), 16) % 15) - 7).toFixed(0);
+// ---------- Vista Cartas ----------
+function cardsView(album, filter) {
+  const all = [...album.routes].sort((a, b) => rarityOf(b).level - rarityOf(a).level || album.numbers.get(a.id) - album.numbers.get(b.id));
+  const counts = [0, 0, 0, 0];
+  for (const r of all) counts[rarityOf(r).level] += 1;
+  const shown = filter == null ? all : all.filter((r) => rarityOf(r).level === filter);
   return `
-    <button class="stamp" data-route="${route.id}" title="${esc(route.name)}" style="--tilt:${tilt}deg">
-      <svg viewBox="0 0 140 140" aria-hidden="true">
-        <circle cx="70" cy="70" r="64" fill="none" stroke="${special ? "#d9a21b" : color}" stroke-width="3"/>
-        <circle cx="70" cy="70" r="56" fill="none" stroke="${color}" stroke-width="1" stroke-dasharray="2 3" opacity="0.7"/>
-        <g transform="translate(32 40)">${routeShape(route, color)}</g>
-        <text x="70" y="30" text-anchor="middle" font-size="9" font-weight="600" letter-spacing="1.5" fill="${color}">${esc(date)}</text>
-        <text x="70" y="114" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="1" fill="${color}">${special ? "★ " : ""}${esc(km)}</text>
-      </svg>
-      <span>${esc(route.name)}</span>
-    </button>`;
+    <div class="cv-layout">
+      <aside class="cv-side">
+        <h2>Cartas</h2>
+        <p class="col-sub">${plural(all.length, "carta", "cartas")} · una por ruta</p>
+        <div class="rar-filters">
+          <button class="rar-filter${filter == null ? " on" : ""}" data-rarity=""><span class="rf-name">Todas</span><b>${all.length}</b></button>
+          ${[...RARITIES].reverse().map((r) => {
+            const lvl = RARITIES.indexOf(r);
+            return `<button class="rar-filter${filter === lvl ? " on" : ""}" data-rarity="${lvl}" style="--rc:${r.color}" ${counts[lvl] ? "" : "disabled"}>
+              ${gems(lvl, r.color)}<span class="rf-name">${r.name}</span><b>${counts[lvl]}</b></button>`;
+          }).join("")}
+        </div>
+        <details class="rar-help">
+          <summary>¿Cómo se decide la rareza?</summary>
+          <p>Por el día más duro de la ruta, en <b>km-esfuerzo</b>: cada 100 m de subida cuentan como 1 km llano (en bici, el km llano cuenta ¼).</p>
+          <ul>
+            <li>Común: menos de 12</li><li>Rara: 12 o más</li><li>Épica: 22 o más</li><li>Legendaria: 35 o más</li>
+          </ul>
+          <p>Sube un nivel si pasas de 3.000 m de altitud o si es una travesía de 3 días o más. Por encima de 5.000 m siempre es Legendaria.</p>
+        </details>
+      </aside>
+      <main class="cv-main">
+        <div class="cards cards-wide">${shown.map((r) => cardHtml(r, album.numbers.get(r.id))).join("")}</div>
+      </main>
+    </div>`;
 }
 
-// Forma de la ruta encajada en 76 × 56 dentro del sello
-function routeShape(route, color) {
-  const W = 76, H = 56;
-  const step = Math.max(1, Math.floor(route.points.length / 120));
-  const pts = route.points.filter((_, i) => i % step === 0);
-  const k = Math.cos((pts[0].lat * Math.PI) / 180);
-  const xs = pts.map((p) => p.lon * k), ys = pts.map((p) => -p.lat);
-  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const s = Math.min(W / (maxX - minX || 1e-9), H / (maxY - minY || 1e-9));
-  const ox = (W - (maxX - minX) * s) / 2, oy = (H - (maxY - minY) * s) / 2;
-  const d = xs.map((x, i) => `${i ? "L" : "M"}${(ox + (x - minX) * s).toFixed(1)} ${(oy + (ys[i] - minY) * s).toFixed(1)}`).join(" ");
-  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+// ---------- Vista Logros ----------
+function achievementsView(list) {
+  const done = list.filter((a) => a.done).length;
+  const byLevel = [0, 0, 0, 0];
+  for (const a of list) if (a.done) byLevel[a.level] += 1;
+  return `
+    <div class="ach-view">
+      <header class="ach-head">
+        <div>
+          <h1>Logros</h1>
+          <p>${done} de ${list.length} conseguidos</p>
+          <div class="ach-total"><i style="width:${(done / list.length) * 100}%"></i></div>
+        </div>
+        <div class="ach-counts">${[...RARITIES].reverse().map((r) => {
+          const lvl = RARITIES.indexOf(r);
+          return `<span style="--rc:${r.color}">${gems(lvl, r.color)}<b>${byLevel[lvl]}</b> ${r.males}</span>`;
+        }).join("")}</div>
+      </header>
+      ${CATEGORIES.map((cat) => {
+        const items = list.filter((a) => a.cat === cat.id).sort((a, b) => b.done - a.done || a.level - b.level);
+        return `
+          <section class="ach-section">
+            <h2>${esc(cat.name)} <span>${items.filter((a) => a.done).length}/${items.length}</span></h2>
+            <div class="ach-grid">${items.map((a) => achievementTile(a, cat.icon)).join("")}</div>
+          </section>`;
+      }).join("")}
+    </div>`;
+}
+
+function achievementTile(a, icon) {
+  const r = RARITIES[a.level];
+  const pct = Math.min(100, (a.value / a.goal) * 100);
+  return `
+    <article class="ach${a.done ? " done" : ""}" style="--rc:${r.color};--rs:${r.soft}">
+      ${hexMedal({ color: r.color, soft: r.soft, icon, locked: !a.done, size: 52 })}
+      <div class="ach-body">
+        <span class="ach-rarity">${gems(a.level, a.done ? r.color : "#b9c0b7")}${r.male}</span>
+        <strong>${esc(a.name)}</strong>
+        <span class="ach-desc">${esc(a.desc)}</span>
+        ${a.done
+          ? `<span class="ach-when">${a.unlock?.date ? `Conseguido el ${fmtDate(a.unlock.date).toLowerCase()}` : "Conseguido"}</span>`
+          : `<span class="ach-progress"><i style="width:${pct}%"></i></span><span class="ach-when">${a.unit(a.value)} / ${a.unit(a.goal)}</span>`}
+      </div>
+    </article>`;
 }

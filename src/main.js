@@ -15,15 +15,18 @@ import {
 } from "./storage.js";
 import { resizeImage } from "./photos.js";
 import { activityOf } from "./activities.js";
-import { fmtKm, fmtM, fmtDuration } from "./format.js";
+import { fmtKm, fmtM, fmtDuration, esc } from "./format.js";
 import { renderHome, renderFolder, collectionSummary } from "./ui.js";
 import { renderDetail } from "./detail.js";
 import { detectStageStarts, cleanStarts, dayRanges, cumulativeKm, indexAtKm } from "./stages.js";
 import { openRouteDialog } from "./routeDialog.js";
 import { pickRoutes } from "./routePicker.js";
-import { locateRoute, GEO_VERSION } from "./geo.js";
+import { locateRoute, GEO_VERSION, continentsByIso } from "./geo.js";
 import { buildAlbum } from "./album.js";
 import { renderCollection } from "./collectionView.js";
+import { computeAchievements, CATEGORIES } from "./achievements.js";
+import { RARITIES } from "./rarity.js";
+import { hexMedal } from "./medals.js";
 import { initSheet } from "./sheet.js";
 import { newId } from "./id.js";
 
@@ -432,7 +435,8 @@ fileInput.addEventListener("change", async () => {
   await saveRoute(route);
   routes.push(route);
   showDetail(route);
-  ensureGeo(route); // en segundo plano: en qué país y región está (para el álbum y los filtros)
+  // En segundo plano: en qué país y región está (para el álbum y los filtros) y si desbloquea logros
+  ensureGeo(route).then(announceAchievements);
 });
 
 async function editRoute(route) {
@@ -447,6 +451,7 @@ async function editRoute(route) {
   });
   await saveRoute(route);
   showDetail(route);
+  announceAchievements(); // cambiar la actividad o la fecha puede desbloquear alguno
 }
 
 async function removeRoute(route) {
@@ -476,7 +481,8 @@ function withDefaults(route) {
 // (El elemento sigue llamándose #album y la función openAlbum por historia del proyecto)
 const albumEl = document.getElementById("album");
 // iso = país que se ve; regionId = región con el panel desplegado (o "specials", o null)
-const collection = { data: null, continent: null, iso: null, regionId: null };
+// view = "map" | "cards" | "achievements"; rarity = filtro de las cartas
+const collection = { data: null, achievements: [], view: "map", rarity: null, continent: null, iso: null, regionId: null };
 
 // Calcula (una vez) por qué países y regiones pasa una ruta y lo guarda con ella
 const geoJobs = new Map();
@@ -496,17 +502,19 @@ async function openAlbum() {
   albumEl.innerHTML = `<p class="album-loading">Preparando la colección…</p>`;
   await Promise.all(routes.map(ensureGeo));
   collection.data = await buildAlbum(routes);
+  collection.achievements = await achievementsNow(collection.data);
   drawCollection();
 }
 
 function drawCollection() {
-  const { data, continent, iso, regionId } = collection;
-  return renderCollection(albumEl, { album: data, continent, iso, regionId }, {
+  const { data, achievements, view, rarity, continent, iso, regionId } = collection;
+  return renderCollection(albumEl, { album: data, achievements, view, rarity, continent, iso, regionId }, {
     onClose: closeAlbum,
     // Moverse entre niveles (mundo → continente → país) o abrir el panel de una región
     onNavigate: (next) => {
       Object.assign(collection, next);
       drawCollection();
+      if (next.view) albumEl.scrollTop = 0;
     },
     onOpenRoute: (id) => {
       closeAlbum();
@@ -531,6 +539,46 @@ document.addEventListener("keydown", (e) => {
   } else if (collection.continent) collection.continent = null;
   else return closeAlbum();
   drawCollection();
+});
+
+// ======================= Logros =======================
+// album (opcional) ya trae cuántas regiones tiene cada país visitado
+async function achievementsNow(album) {
+  album ??= await buildAlbum(routes);
+  const regionTotals = new Map(album.countries.map((c) => [c.iso, c.regions.length]));
+  return computeAchievements(routes, await continentsByIso(), regionTotals);
+}
+
+// Avisa de los logros nuevos. Los ya vistos se recuerdan en este navegador; la primera
+// vez solo se apuntan (si no, al abrir la app con rutas antiguas saldrían todos de golpe).
+const SEEN_KEY = "trail-globe:seen-achievements";
+async function announceAchievements() {
+  let seen = null;
+  try { seen = JSON.parse(localStorage.getItem(SEEN_KEY)); } catch { /* sin almacenamiento */ }
+  const list = await achievementsNow();
+  const done = list.filter((a) => a.done);
+  const fresh = seen ? done.filter((a) => !seen.includes(a.id)) : [];
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(done.map((a) => a.id))); } catch { /* da igual */ }
+  if (!fresh.length) return;
+  const best = fresh.reduce((a, b) => (b.level > a.level ? b : a));
+  showAchievementToast(best, fresh.length);
+}
+
+function showAchievementToast(a, count) {
+  const r = RARITIES[a.level];
+  achToast.innerHTML = `
+    ${hexMedal({ color: r.color, soft: r.soft, icon: CATEGORIES.find((c) => c.id === a.cat).icon, size: 40 })}
+    <span><small style="color:${r.color}">Logro ${r.male.toLowerCase()} desbloqueado</small>
+    <strong>${esc(a.name)}</strong>${count > 1 ? `<em>y ${count - 1} ${count === 2 ? "logro más" : "logros más"}</em>` : ""}</span>`;
+  achToast.hidden = false;
+  clearTimeout(showAchievementToast.timer);
+  showAchievementToast.timer = setTimeout(() => (achToast.hidden = true), 5000);
+}
+const achToast = document.getElementById("achToast");
+achToast.addEventListener("click", () => {
+  achToast.hidden = true;
+  collection.view = "achievements";
+  openAlbum();
 });
 
 // ======================= Rutas de ejemplo =======================
@@ -581,6 +629,7 @@ async function loadDemo() {
   map.flyTo({ center: [10, 25], zoom: 1.4, pitch: 0, bearing: 0, duration: 2000 }); // vista del globo entero
   for (const r of added) await ensureGeo(r);
   updateCollectionCard();
+  announceAchievements();
 }
 
 async function removeDemo() {
@@ -607,6 +656,7 @@ async function init() {
   // Rutas guardadas antes de existir el álbum: calculamos su país y región poco a poco
   for (const r of routes) await ensureGeo(r);
   updateCollectionCard();
+  announceAchievements();
 }
 
 // La tarjeta "Mi colección" del inicio se actualiza cuando terminan de calcularse los países

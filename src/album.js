@@ -30,6 +30,12 @@ export const isSpecial = (route) => {
 
 const byDateDesc = (a, b) => (b.date ?? "").localeCompare(a.date ?? "");
 
+// Número de carta: orden en que hiciste las rutas (la primera es la #001)
+export function cardNumbers(routes) {
+  const sorted = [...routes].sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999") || a.name.localeCompare(b.name));
+  return new Map(sorted.map((r, i) => [r.id, i + 1]));
+}
+
 // Devuelve {
 //   continents: [{ name, countries: [...] }],   ← el orden en que salen en el libro
 //   countries: [{ iso, name, continent, regions: [{ id, name, number, routes }], visited, routeCount }],
@@ -80,5 +86,7 @@ export async function buildAlbum(routes) {
     continents,
     countries: continents.flatMap((g) => g.countries), // mismo orden que el libro
     specials: routes.filter(isSpecial).sort(byDateDesc),
+    routes,
+    numbers: cardNumbers(routes),
   };
 }

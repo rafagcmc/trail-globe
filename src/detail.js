@@ -9,6 +9,7 @@ import { computeStats, elevationProfile } from "./stats.js";
 import { dayRanges, cumulativeKm, dayDate } from "./stages.js";
 import { fmtKm, fmtM, fmtSpeed, fmtDuration, fmtDate, esc, backButton } from "./format.js";
 import { getPhoto } from "./storage.js";
+import { rarityOf, gems } from "./rarity.js";
 
 const ICON_FOLDER = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
 
@@ -49,6 +50,7 @@ export async function renderDetail(panel, route, view, h) {
       <h2>${esc(route.name)}</h2>
       <div class="meta">
         <span class="chip"><i style="background:${activity.color}"></i>${activity.label}</span>
+        ${rarityChip(route)}
         <span>${multiDay ? `${days.length} días · ` : ""}${fmtDate(route.date, true)}</span>
       </div>
       ${view.folderName ? `<div class="meta folder-meta">${ICON_FOLDER}<span>${esc(view.folderName)}</span></div>` : ""}
@@ -221,4 +223,10 @@ function profileSvg(profile, color, { splitsKm = [], highlight = null, tall = fa
       ${splitsKm.map((km) => `<line x1="${x(km)}" y1="0" x2="${x(km)}" y2="${H}" stroke="#9AA19D" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`).join("")}
       <path d="${line}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/>
     </svg>`;
+}
+
+// Rareza de la carta de la ruta, con el porqué al pasar el ratón
+function rarityChip(route) {
+  const { level, rarity, reasons } = rarityOf(route);
+  return `<span class="chip rar-chip" style="--rc:${rarity.color}" title="${esc(reasons.join(" · "))}">${gems(level, rarity.color)}${rarity.name}</span>`;
 }

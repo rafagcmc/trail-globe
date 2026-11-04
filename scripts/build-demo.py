@@ -44,9 +44,11 @@ def track(waypoints, ele_base, ele_amp):
     # Perfil: varias "montañas" + ruido pequeño
     n = len(pts)
     bumps = [(random.random(), random.uniform(0.3, 1.0), random.uniform(0.05, 0.25)) for _ in range(random.randint(1, 4))]
+    # Las montañas se suman y pueden pasarse: se escala para que la cima sea justo base + amp
+    shape = [sum(h * math.exp(-(((i / max(1, n - 1)) - c) ** 2) / (2 * w * w)) for c, h, w in bumps) for i in range(n)]
+    top = max(shape) or 1
     for i, p in enumerate(pts):
-        x = i / max(1, n - 1)
-        e = ele_base + sum(h * ele_amp * math.exp(-((x - c) ** 2) / (2 * w * w)) for c, h, w in bumps)
+        e = ele_base + ele_amp * shape[i] / top
         e += math.sin(i * 0.7) * 2 + random.uniform(-1.5, 1.5)
         p.append(round(max(0, e)))
     return pts

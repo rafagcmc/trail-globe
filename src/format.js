@@ -2,8 +2,8 @@
 
 // useGrouping "always": en español los números de 4 cifras no llevan punto
 // por defecto (2428); lo forzamos para que se lea mejor (2.428).
-const integer = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0, useGrouping: "always" });
-const oneDecimal = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const integer = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0, useGrouping: "always" });
+const oneDecimal = new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export const fmtKm = (km) => `${oneDecimal.format(km)} km`;
 export const fmtM = (m) => integer.format(m);
@@ -17,13 +17,13 @@ export function fmtDuration(min) {
 }
 
 export function fmtDate(iso, long = false) {
-  if (!iso) return "sin fecha";
+  if (!iso) return "no date";
   // "T12:00" evita que la fecha salga un día antes en zonas horarias como la de EE. UU.
   const date = new Date(`${iso}T12:00:00`);
   const options = long
     ? { weekday: "long", day: "numeric", month: "short", year: "numeric" }
     : { day: "numeric", month: "short", year: "numeric" };
-  const text = date.toLocaleDateString("es-ES", options);
+  const text = date.toLocaleDateString("en-US", options);
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 

@@ -11,11 +11,11 @@ import { placesOf } from "./album.js";
 import { fmtM } from "./format.js";
 
 export const CATEGORIES = [
-  { id: "total", name: "Acumulados", icon: "boot" },
-  { id: "explore", name: "Exploración", icon: "globe" },
-  { id: "feat", name: "Hazañas", icon: "peak" },
-  { id: "cards", name: "Cartas", icon: "card" },
-  { id: "habit", name: "Constancia y variedad", icon: "calendar" },
+  { id: "total", name: "Totals", icon: "boot" },
+  { id: "explore", name: "Exploration", icon: "globe" },
+  { id: "feat", name: "Feats", icon: "peak" },
+  { id: "cards", name: "Cards", icon: "card" },
+  { id: "habit", name: "Consistency and variety", icon: "calendar" },
 ];
 
 const SANTIAGO = { lat: 42.8806, lon: -8.5446 };
@@ -27,49 +27,49 @@ const n = (v) => fmtM(Math.floor(v));
 // value(acc) = cuánto llevas; goal = cuánto hace falta; unit = cómo se muestra
 export const ACHIEVEMENTS = [
   // Acumulados
-  { id: "routes-1", cat: "total", level: 0, name: "Primeros pasos", desc: "Guarda tu primera ruta", goal: 1, value: (a) => a.routes, unit: n },
-  { id: "routes-10", cat: "total", level: 1, name: "Habitual", desc: "Guarda 10 rutas", goal: 10, value: (a) => a.routes, unit: n },
-  { id: "routes-50", cat: "total", level: 2, name: "Veterano", desc: "Guarda 50 rutas", goal: 50, value: (a) => a.routes, unit: n },
-  { id: "km-100", cat: "total", level: 0, name: "Centenario", desc: "Recorre 100 km en total", goal: 100, value: (a) => a.km, unit: km },
-  { id: "km-500", cat: "total", level: 1, name: "Medio millar", desc: "Recorre 500 km en total", goal: 500, value: (a) => a.km, unit: km },
-  { id: "km-1000", cat: "total", level: 2, name: "Mil kilómetros", desc: "Recorre 1.000 km en total", goal: 1000, value: (a) => a.km, unit: km },
-  { id: "km-3000", cat: "total", level: 3, name: "De punta a punta", desc: "Recorre 3.000 km en total", goal: 3000, value: (a) => a.km, unit: km },
-  { id: "gain-1000", cat: "total", level: 0, name: "Primer millar", desc: "Acumula 1.000 m de desnivel positivo", goal: 1000, value: (a) => a.gain, unit: m },
-  { id: "gain-everest", cat: "total", level: 1, name: "Everest acumulado", desc: "Acumula 8.849 m de subida, la altura del Everest", goal: 8849, value: (a) => a.gain, unit: m },
-  { id: "gain-3everest", cat: "total", level: 2, name: "Tres Everest", desc: "Acumula 26.547 m de subida", goal: 26547, value: (a) => a.gain, unit: m },
+  { id: "routes-1", cat: "total", level: 0, name: "First steps", desc: "Save your first route", goal: 1, value: (a) => a.routes, unit: n },
+  { id: "routes-10", cat: "total", level: 1, name: "Regular", desc: "Save 10 routes", goal: 10, value: (a) => a.routes, unit: n },
+  { id: "routes-50", cat: "total", level: 2, name: "Veteran", desc: "Save 50 routes", goal: 50, value: (a) => a.routes, unit: n },
+  { id: "km-100", cat: "total", level: 0, name: "Century", desc: "Cover 100 km in total", goal: 100, value: (a) => a.km, unit: km },
+  { id: "km-500", cat: "total", level: 1, name: "Five hundred", desc: "Cover 500 km in total", goal: 500, value: (a) => a.km, unit: km },
+  { id: "km-1000", cat: "total", level: 2, name: "A thousand kilometres", desc: "Cover 1,000 km in total", goal: 1000, value: (a) => a.km, unit: km },
+  { id: "km-3000", cat: "total", level: 3, name: "End to end", desc: "Cover 3,000 km in total", goal: 3000, value: (a) => a.km, unit: km },
+  { id: "gain-1000", cat: "total", level: 0, name: "First thousand", desc: "Climb 1,000 m in total", goal: 1000, value: (a) => a.gain, unit: m },
+  { id: "gain-everest", cat: "total", level: 1, name: "Everesting", desc: "Climb 8,849 m in total, the height of Everest", goal: 8849, value: (a) => a.gain, unit: m },
+  { id: "gain-3everest", cat: "total", level: 2, name: "Three Everests", desc: "Climb 26,547 m in total", goal: 26547, value: (a) => a.gain, unit: m },
 
   // Exploración
-  { id: "countries-3", cat: "explore", level: 0, name: "Cruzando fronteras", desc: "Haz rutas en 3 países", goal: 3, value: (a) => a.countries.size, unit: n },
-  { id: "countries-10", cat: "explore", level: 2, name: "Pasaporte lleno", desc: "Haz rutas en 10 países", goal: 10, value: (a) => a.countries.size, unit: n },
-  { id: "countries-25", cat: "explore", level: 3, name: "Ciudadano del mundo", desc: "Haz rutas en 25 países", goal: 25, value: (a) => a.countries.size, unit: n },
-  { id: "continents-3", cat: "explore", level: 1, name: "Tres continentes", desc: "Haz rutas en 3 continentes", goal: 3, value: (a) => a.continents.size, unit: n },
-  { id: "continents-6", cat: "explore", level: 3, name: "Seis continentes", desc: "Haz rutas en todos los continentes habitados", goal: 6, value: (a) => a.continents.size, unit: n },
-  { id: "regions-10", cat: "explore", level: 0, name: "Coleccionista", desc: "Consigue 10 insignias de región", goal: 10, value: (a) => a.regions.size, unit: n },
-  { id: "regions-40", cat: "explore", level: 2, name: "Gran coleccionista", desc: "Consigue 40 insignias de región", goal: 40, value: (a) => a.regions.size, unit: n },
-  { id: "country-full", cat: "explore", level: 2, name: "País completo", desc: "Consigue todas las insignias de un país", goal: 1, value: (a) => a.fullCountries, unit: n },
+  { id: "countries-3", cat: "explore", level: 0, name: "Border crosser", desc: "Do routes in 3 countries", goal: 3, value: (a) => a.countries.size, unit: n },
+  { id: "countries-10", cat: "explore", level: 2, name: "Full passport", desc: "Do routes in 10 countries", goal: 10, value: (a) => a.countries.size, unit: n },
+  { id: "countries-25", cat: "explore", level: 3, name: "Citizen of the world", desc: "Do routes in 25 countries", goal: 25, value: (a) => a.countries.size, unit: n },
+  { id: "continents-3", cat: "explore", level: 1, name: "Three continents", desc: "Do routes on 3 continents", goal: 3, value: (a) => a.continents.size, unit: n },
+  { id: "continents-6", cat: "explore", level: 3, name: "Six continents", desc: "Do routes on every inhabited continent", goal: 6, value: (a) => a.continents.size, unit: n },
+  { id: "regions-10", cat: "explore", level: 0, name: "Collector", desc: "Earn 10 region badges", goal: 10, value: (a) => a.regions.size, unit: n },
+  { id: "regions-40", cat: "explore", level: 2, name: "Master collector", desc: "Earn 40 region badges", goal: 40, value: (a) => a.regions.size, unit: n },
+  { id: "country-full", cat: "explore", level: 2, name: "Whole country", desc: "Earn every badge in a country", goal: 1, value: (a) => a.fullCountries, unit: n },
 
   // Hazañas en una sola ruta (o un solo día de una travesía)
-  { id: "day-25", cat: "feat", level: 1, name: "Día largo", desc: "Camina 25 km en un día", goal: 25, value: (a) => a.bestWalkDay, unit: km },
-  { id: "day-40", cat: "feat", level: 2, name: "Ultra", desc: "Camina 40 km en un día", goal: 40, value: (a) => a.bestWalkDay, unit: km },
-  { id: "bike-100", cat: "feat", level: 2, name: "Centenario sobre ruedas", desc: "Pedalea 100 km en un día", goal: 100, value: (a) => a.bestBikeDay, unit: km },
-  { id: "climb-1000", cat: "feat", level: 1, name: "Mil de desnivel", desc: "Sube 1.000 m en un día", goal: 1000, value: (a) => a.bestDayGain, unit: m },
-  { id: "climb-2000", cat: "feat", level: 2, name: "Pared", desc: "Sube 2.000 m en un día", goal: 2000, value: (a) => a.bestDayGain, unit: m },
-  { id: "alt-3000", cat: "feat", level: 1, name: "Tresmil", desc: "Pasa de 3.000 m de altitud", goal: 3000, value: (a) => a.maxEle, unit: m },
-  { id: "alt-5000", cat: "feat", level: 3, name: "Aire fino", desc: "Pasa de 5.000 m de altitud", goal: 5000, value: (a) => a.maxEle, unit: m },
-  { id: "trip-5", cat: "feat", level: 1, name: "Travesía", desc: "Completa una ruta de 5 días o más", goal: 5, value: (a) => a.longestTrip, unit: n },
+  { id: "day-25", cat: "feat", level: 1, name: "Long day", desc: "Walk 25 km in a day", goal: 25, value: (a) => a.bestWalkDay, unit: km },
+  { id: "day-40", cat: "feat", level: 2, name: "Ultra", desc: "Walk 40 km in a day", goal: 40, value: (a) => a.bestWalkDay, unit: km },
+  { id: "bike-100", cat: "feat", level: 2, name: "Century ride", desc: "Ride 100 km in a day", goal: 100, value: (a) => a.bestBikeDay, unit: km },
+  { id: "climb-1000", cat: "feat", level: 1, name: "Thousand-metre day", desc: "Climb 1,000 m in a day", goal: 1000, value: (a) => a.bestDayGain, unit: m },
+  { id: "climb-2000", cat: "feat", level: 2, name: "The wall", desc: "Climb 2,000 m in a day", goal: 2000, value: (a) => a.bestDayGain, unit: m },
+  { id: "alt-3000", cat: "feat", level: 1, name: "Three-thousander", desc: "Go above 3,000 m", goal: 3000, value: (a) => a.maxEle, unit: m },
+  { id: "alt-5000", cat: "feat", level: 3, name: "Thin air", desc: "Go above 5,000 m", goal: 5000, value: (a) => a.maxEle, unit: m },
+  { id: "trip-5", cat: "feat", level: 1, name: "Long trip", desc: "Complete a route of 5 days or more", goal: 5, value: (a) => a.longestTrip, unit: n },
 
   // Cartas
-  { id: "card-rare", cat: "cards", level: 0, name: "Algo especial", desc: "Consigue tu primera carta Rara", goal: 1, value: (a) => a.byRarity[1] + a.byRarity[2] + a.byRarity[3], unit: n },
-  { id: "card-epic", cat: "cards", level: 1, name: "Épico", desc: "Consigue tu primera carta Épica", goal: 1, value: (a) => a.byRarity[2] + a.byRarity[3], unit: n },
-  { id: "card-legendary", cat: "cards", level: 2, name: "Leyenda", desc: "Consigue tu primera carta Legendaria", goal: 1, value: (a) => a.byRarity[3], unit: n },
-  { id: "card-legendary-5", cat: "cards", level: 3, name: "Mano legendaria", desc: "Reúne 5 cartas Legendarias", goal: 5, value: (a) => a.byRarity[3], unit: n },
+  { id: "card-rare", cat: "cards", level: 0, name: "Something special", desc: "Get your first Rare card", goal: 1, value: (a) => a.byRarity[1] + a.byRarity[2] + a.byRarity[3], unit: n },
+  { id: "card-epic", cat: "cards", level: 1, name: "Epic", desc: "Get your first Epic card", goal: 1, value: (a) => a.byRarity[2] + a.byRarity[3], unit: n },
+  { id: "card-legendary", cat: "cards", level: 2, name: "Legend", desc: "Get your first Legendary card", goal: 1, value: (a) => a.byRarity[3], unit: n },
+  { id: "card-legendary-5", cat: "cards", level: 3, name: "Legendary hand", desc: "Collect 5 Legendary cards", goal: 5, value: (a) => a.byRarity[3], unit: n },
 
   // Constancia y variedad
-  { id: "all-activities", cat: "habit", level: 1, name: "Todoterreno", desc: "Haz senderismo, bici y Camino", goal: 3, value: (a) => a.activities.size, unit: n },
-  { id: "seasons", cat: "habit", level: 2, name: "Cuatro estaciones", desc: "Sal a la montaña en primavera, verano, otoño e invierno", goal: 4, value: (a) => a.seasons.size, unit: n },
-  { id: "streak-3", cat: "habit", level: 0, name: "Constante", desc: "Haz rutas 3 meses seguidos", goal: 3, value: (a) => a.bestStreak, unit: n },
-  { id: "streak-12", cat: "habit", level: 3, name: "Un año en ruta", desc: "Haz rutas 12 meses seguidos", goal: 12, value: (a) => a.bestStreak, unit: n },
-  { id: "santiago", cat: "habit", level: 2, name: "Peregrino", desc: "Llega a Santiago en una ruta de Camino de varios días", goal: 1, value: (a) => a.santiago, unit: n },
+  { id: "all-activities", cat: "habit", level: 1, name: "All-rounder", desc: "Do hiking, biking and a Camino", goal: 3, value: (a) => a.activities.size, unit: n },
+  { id: "seasons", cat: "habit", level: 2, name: "Four seasons", desc: "Get out in spring, summer, autumn and winter", goal: 4, value: (a) => a.seasons.size, unit: n },
+  { id: "streak-3", cat: "habit", level: 0, name: "Steady", desc: "Do routes 3 months in a row", goal: 3, value: (a) => a.bestStreak, unit: n },
+  { id: "streak-12", cat: "habit", level: 3, name: "A year on the trail", desc: "Do routes 12 months in a row", goal: 12, value: (a) => a.bestStreak, unit: n },
+  { id: "santiago", cat: "habit", level: 2, name: "Pilgrim", desc: "Reach Santiago on a multi-day Camino route", goal: 1, value: (a) => a.santiago, unit: n },
 ];
 
 // Estación por mes, al revés en el hemisferio sur

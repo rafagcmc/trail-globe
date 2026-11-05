@@ -23,10 +23,10 @@ import { hexMedal } from "./medals.js";
 
 // Niveles de insignia según el número de rutas en la región
 const TIERS = [
-  { min: 10, name: "Platino", color: "#5f7d8c", bg: "#e8f0f3" },
-  { min: 5, name: "Oro", color: "#d9a21b", bg: "#fff4d6" },
-  { min: 2, name: "Plata", color: "#98a2aa", bg: "#eef1f3" },
-  { min: 1, name: "Bronce", color: "#b8763e", bg: "#f8eadf" },
+  { min: 10, name: "Platinum", color: "#5f7d8c", bg: "#e8f0f3" },
+  { min: 5, name: "Gold", color: "#d9a21b", bg: "#fff4d6" },
+  { min: 2, name: "Silver", color: "#98a2aa", bg: "#eef1f3" },
+  { min: 1, name: "Bronze", color: "#b8763e", bg: "#f8eadf" },
 ];
 const tierOf = (n) => TIERS.find((t) => n >= t.min) ?? null;
 const nextTier = (n) => [...TIERS].reverse().find((t) => t.min > n) ?? null;
@@ -38,12 +38,12 @@ const shade = (n) => (n >= 5 ? "#e8890c" : n >= 2 ? "#f0a954" : n >= 1 ? "#f7cf9
 // Se recorta a mano porque algunos países tienen territorios lejos (Francia en Sudamérica,
 // Rusia hasta el Pacífico) y encuadrarlos enteros dejaría el continente diminuto.
 const CONTINENTS = {
-  "Europa": { view: [-25, 35, 45, 71.5], label: [15, 54] },
+  "Europe": { view: [-25, 35, 45, 71.5], label: [15, 54] },
   "Asia": { view: [25, -11, 150, 56], label: [92, 46] },
-  "África": { view: [-20, -36, 55, 38], label: [18, 6] },
-  "América del Norte": { view: [-170, 6, -50, 75], label: [-102, 44] },
-  "América del Sur": { view: [-85, -56, -33, 13], label: [-60, -16] },
-  "Oceanía": { view: [110, -48, 180, -5], label: [135, -25] },
+  "Africa": { view: [-20, -36, 55, 38], label: [18, 6] },
+  "North America": { view: [-170, 6, -50, 75], label: [-102, 44] },
+  "South America": { view: [-85, -56, -33, 13], label: [-60, -16] },
+  "Oceania": { view: [110, -48, 180, -5], label: [135, -25] },
 };
 const WORLD_VIEW = [-170, -56, 190, 80];
 
@@ -56,7 +56,7 @@ export async function renderCollection(root, state, h) {
   const { album } = state;
   const view = state.view ?? "map";
   if (!album.routes.length) {
-    root.innerHTML = `${topBar("world", null, null, view)}<div class="col-empty">Tu colección está vacía. Sube rutas y aquí irán apareciendo tus cartas, los países y regiones por los que has pasado y tus logros.</div>`;
+    root.innerHTML = `${topBar("world", null, null, view)}<div class="col-empty">Your collection is empty. Add routes and your cards, the countries and regions you have been through and your achievements will show up here.</div>`;
     root.onclick = (e) => {
       if (e.target.closest("[data-close]")) return h.onClose();
       const v = e.target.closest("[data-view]");
@@ -88,18 +88,18 @@ export async function renderCollection(root, state, h) {
   if (level === "country") {
     const shapes = await loadRegions(country.iso);
     head = `<div class="col-title">${upButton(level, continent)}<h1>${esc(country.name)}</h1></div>
-      <p>${country.visited} de ${country.regions.length} regiones · ${totals(countryRoutes(country))}</p>`;
+      <p>${country.visited} of ${country.regions.length} regions · ${totals(countryRoutes(country))}</p>`;
     map = regionsSvg(shapes.features, country, state.regionId);
   } else if (level === "continent") {
     const group = album.continents.find((g) => g.name === continent);
     const total = world.features.filter((f) => f.properties.continent === continent).length;
     head = `<div class="col-title">${upButton(level, continent)}<h1>${esc(continent)}</h1></div>
-      <p>${group ? `${group.countries.length} de ${total} países · ${totals(continentRoutes(group))}` : "Aún no tienes rutas en este continente"}</p>`;
+      <p>${group ? `${group.countries.length} of ${total} countries · ${totals(continentRoutes(group))}` : "No routes on this continent yet"}</p>`;
     map = countriesSvg(world.features, album, continent);
   } else {
     const routes = [...new Set(album.countries.flatMap(countryRoutes))];
-    head = `<h1>Mundo</h1>
-      <p>${plural(album.countries.length, "país", "países")} en ${plural(album.continents.length, "continente", "continentes")} · ${totals(routes)}</p>`;
+    head = `<h1>World</h1>
+      <p>${plural(album.countries.length, "country", "countries")} on ${plural(album.continents.length, "continent", "continents")} · ${totals(routes)}</p>`;
     map = countriesSvg(world.features, album, null);
   }
 
@@ -111,7 +111,7 @@ export async function renderCollection(root, state, h) {
         <header class="col-head">${head}</header>
         <div class="col-map">${map}</div>
         <div class="col-legend">
-          ${[[0, "Sin visitar"], [1, "1 ruta"], [2, "2–4 rutas"], [5, "5 o más"]].map(([n, l]) => `<span><i style="background:${shade(n)}"></i>${l}</span>`).join("")}
+          ${[[0, "Not visited"], [1, "1 route"], [2, "2–4 routes"], [5, "5 or more"]].map(([n, l]) => `<span><i style="background:${shade(n)}"></i>${l}</span>`).join("")}
         </div>
         <div class="col-tooltip" hidden></div>
       </main>
@@ -176,17 +176,17 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const countryRoutes = (c) => [...new Set(c.regions.flatMap((r) => r.routes))];
 // Sin repetir: una ruta que cruza dos países del mismo continente cuenta una vez
 const continentRoutes = (g) => [...new Set(g.countries.flatMap(countryRoutes))];
-const routesTip = (name, n) => `${name} · ${n ? plural(n, "ruta", "rutas") : "sin visitar"}`;
+const routesTip = (name, n) => `${name} · ${n ? plural(n, "route", "routes") : "not visited"}`;
 
 function totals(routes) {
   let km = 0, gain = 0;
   for (const r of routes) { const s = computeStats(r.points); km += s.distanceKm; gain += s.gainM ?? 0; }
-  return `${plural(routes.length, "ruta", "rutas")} · ${fmtKm(km)} · +${fmtM(gain)} m`;
+  return `${plural(routes.length, "route", "routes")} · ${fmtKm(km)} · +${fmtM(gain)} m`;
 }
 
 // Barra superior: "Volver al globo" arriba a la izquierda (sale de la colección de un toque)
 // y las pestañas a la derecha. El botón para subir un nivel va encima del título del mapa.
-const VIEWS = [["map", "Mapa"], ["cards", "Cartas"], ["achievements", "Logros"]];
+const VIEWS = [["map", "Map"], ["cards", "Cards"], ["achievements", "Achievements"]];
 const ICON_GLOBE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 12h17" stroke="currentColor" stroke-width="1.7"/></svg>`;
 
 function topBar(level, continent, country, view = "map") {
@@ -194,7 +194,7 @@ function topBar(level, continent, country, view = "map") {
     `<button data-view="${id}"${id === view ? ' class="on" aria-current="page"' : ""}>${label}</button>`).join("")}</nav>`;
   return `
     <div class="col-top">
-      <button class="globe-btn" data-close>${ICON_GLOBE}<span>Volver al globo</span></button>
+      <button class="globe-btn" data-close>${ICON_GLOBE}<span>Back to globe</span></button>
       ${tabs}
     </div>`;
 }
@@ -203,14 +203,14 @@ function topBar(level, continent, country, view = "map") {
 // Va en la misma línea que el título para que el mapa no salte de altura entre niveles.
 const upButton = (level, continent) => level === "country"
   ? backButton(continent, `data-continent="${esc(continent)}"`)
-  : backButton("Mundo", "data-world");
+  : backButton("World", "data-world");
 
 const summary = (album) => `
-  <h2>Colección</h2>
-  <p class="col-sub">${plural(album.countries.length, "país", "países")} · ${album.countries.reduce((s, c) => s + c.visited, 0)} insignias</p>`;
+  <h2>Collection</h2>
+  <p class="col-sub">${plural(album.countries.length, "country", "countries")} · ${album.countries.reduce((s, c) => s + c.visited, 0)} badges</p>`;
 
 const specialsButton = (album) => album.specials.length
-  ? `<button class="col-specials" data-specials>★ Ediciones especiales <span>${album.specials.length}</span></button>` : "";
+  ? `<button class="col-specials" data-specials>★ Special editions <span>${album.specials.length}</span></button>` : "";
 
 // Nivel mundo: solo los continentes (con rutas primero), así la lista es corta
 function continentList(album, world) {
@@ -218,13 +218,13 @@ function continentList(album, world) {
     (album.continents.find((g) => g.name === b)?.countries.length ?? 0) - (album.continents.find((g) => g.name === a)?.countries.length ?? 0));
   return `
     ${summary(album)}
-    <div class="col-group">Continentes</div>
+    <div class="col-group">Continents</div>
     ${names.map((name) => {
       const done = album.continents.find((g) => g.name === name)?.countries.length ?? 0;
       const total = world.features.filter((f) => f.properties.continent === name).length;
       return `
         <button class="col-country${done ? "" : " empty"}" data-continent="${esc(name)}">
-          <span class="row"><strong>${esc(name)}</strong><span>${done}/${total} países</span></span>
+          <span class="row"><strong>${esc(name)}</strong><span>${done}/${total} countries</span></span>
           <span class="bar"><i style="width:${done ? Math.max(3, (done / total) * 100) : 0}%"></i></span>
         </button>`;
     }).join("")}
@@ -241,7 +241,7 @@ function countryList(album, continent, current) {
       <button class="col-country${c.iso === current?.iso ? " on" : ""}" data-country="${c.iso}">
         <span class="row"><strong>${esc(c.name)}</strong><span>${c.visited}/${c.regions.length}</span></span>
         <span class="bar"><i style="width:${Math.max(3, (c.visited / c.regions.length) * 100)}%"></i></span>
-      </button>`).join("") : `<p class="col-none">Aún no tienes rutas aquí.</p>`}
+      </button>`).join("") : `<p class="col-none">No routes here yet.</p>`}
     ${specialsButton(album)}`;
 }
 
@@ -274,7 +274,7 @@ function countriesSvg(features, album, focus) {
   if (focus) {
     // Continente: los países de alrededor en gris claro, como contexto
     for (const f of features) {
-      if (!visible(f) || f.properties.continent === "Antártida") continue;
+      if (!visible(f) || f.properties.continent === "Antarctica") continue;
       const { iso, name, continent } = f.properties;
       if (continent !== focus) { svg += `<path d="${pathOf(f)}" class="ctx"/>`; continue; }
       const count = routesOf.get(iso) ?? 0;
@@ -287,8 +287,8 @@ function countriesSvg(features, album, focus) {
     for (const [name, { label }] of Object.entries(CONTINENTS)) {
       const group = album.continents.find((g) => g.name === name);
       const tipText = group
-        ? `${name} · ${plural(group.countries.length, "país", "países")} · ${plural(continentRoutes(group).length, "ruta", "rutas")}`
-        : `${name} · sin visitar`;
+        ? `${name} · ${plural(group.countries.length, "country", "countries")} · ${plural(continentRoutes(group).length, "route", "routes")}`
+        : `${name} · not visited`;
       const paths = features.filter((f) => f.properties.continent === name)
         .map((f) => `<path d="${pathOf(f)}" fill="${shade(routesOf.get(f.properties.iso) ?? 0)}"/>`).join("");
       svg += `<g class="continent" data-continent="${esc(name)}" data-tip="${esc(tipText)}">${paths}</g>`;
@@ -312,7 +312,7 @@ function countriesSvg(features, album, focus) {
     svg = `<defs>${fade("fadeX", 1, 0)}${fade("fadeY", 0, 1)}${mask("maskX", "fadeX")}${mask("maskY", "fadeY")}</defs>
       <g mask="url(#maskX)"><g mask="url(#maskY)">${svg}</g></g>`;
   }
-  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" class="${focus ? "continent-map" : "world-map"}" role="img" aria-label="Mapa">${svg}</svg>`;
+  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" class="${focus ? "continent-map" : "world-map"}" role="img" aria-label="Map">${svg}</svg>`;
 }
 
 // ---------- Mapa de regiones (país) ----------
@@ -376,14 +376,14 @@ function regionsSvg(features, country, selectedId) {
     svg += draw(parts, fit(parts, x + 8, y + 8, INSET_W - 16, INSET_H - 16));
   });
 
-  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" role="img" aria-label="Mapa de regiones">${svg}</svg>`;
+  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" role="img" aria-label="Regions map">${svg}</svg>`;
 }
 
 // ---------- Panel desplegable: insignia + sellos ----------
 function drawerHtml(album, country, regionId) {
   if (regionId === "specials") {
     return `
-      ${drawerHead("Ediciones especiales", "Rutas que cruzan varias regiones o países")}
+      ${drawerHead("Special editions", "Routes that cross several regions or countries")}
       <div class="cards">${album.specials.map((r) => cardHtml(r, album.numbers.get(r.id))).join("")}</div>`;
   }
   const region = country.regions.find((r) => r.id === regionId);
@@ -397,15 +397,15 @@ function drawerHtml(album, country, regionId) {
     <div class="badge-block">
       ${badgeSvg(tier)}
       <div>
-        <strong>${tier ? `Insignia de ${tier.name.toLowerCase()}` : "Insignia bloqueada"}</strong>
-        <span>${n ? totals(region.routes) : "Aún no tienes rutas en esta región"}</span>
+        <strong>${tier ? `${tier.name} badge` : "Locked badge"}</strong>
+        <span>${n ? totals(region.routes) : "No routes in this region yet"}</span>
         ${next ? `
           <div class="tier-progress"><i style="width:${(n / next.min) * 100}%;background:${next.color}"></i></div>
-          <small>${n ? `${plural(next.min - n, "ruta más", "rutas más")} para ${next.name}` : "Haz tu primera ruta aquí para conseguirla"}</small>` : "<small>Nivel máximo conseguido</small>"}
+          <small>${n ? `${plural(next.min - n, "more route", "more routes")} for ${next.name}` : "Do your first route here to earn it"}</small>` : "<small>Top level reached</small>"}
       </div>
     </div>
     ${n ? `
-      <div class="drawer-label">Cartas · ${plural(n, "ruta", "rutas")}</div>
+      <div class="drawer-label">Cards · ${plural(n, "route", "routes")}</div>
       <div class="cards">${region.routes.map((r) => cardHtml(r, album.numbers.get(r.id))).join("")}</div>` : ""}`;
 }
 
@@ -413,7 +413,7 @@ function drawerHead(title, sub) {
   return `
     <div class="drawer-head">
       <div><h3>${esc(title)}</h3><span>${esc(sub)}</span></div>
-      <button data-drawer-close aria-label="Cerrar">×</button>
+      <button data-drawer-close aria-label="Close">×</button>
     </div>`;
 }
 
@@ -431,10 +431,10 @@ function cardsView(album, filter) {
   return `
     <div class="cv-layout">
       <aside class="cv-side">
-        <h2>Cartas</h2>
-        <p class="col-sub">${plural(all.length, "carta", "cartas")} · una por ruta</p>
+        <h2>Cards</h2>
+        <p class="col-sub">${plural(all.length, "card", "cards")} · one per route</p>
         <div class="rar-filters">
-          <button class="rar-filter${filter == null ? " on" : ""}" data-rarity=""><span class="rf-name">Todas</span><b>${all.length}</b></button>
+          <button class="rar-filter${filter == null ? " on" : ""}" data-rarity=""><span class="rf-name">All</span><b>${all.length}</b></button>
           ${[...RARITIES].reverse().map((r) => {
             const lvl = RARITIES.indexOf(r);
             return `<button class="rar-filter${filter === lvl ? " on" : ""}" data-rarity="${lvl}" style="--rc:${r.color}" ${counts[lvl] ? "" : "disabled"}>
@@ -442,12 +442,12 @@ function cardsView(album, filter) {
           }).join("")}
         </div>
         <details class="rar-help">
-          <summary>¿Cómo se decide la rareza?</summary>
-          <p>Por el día más duro de la ruta, en <b>km-esfuerzo</b>: cada 100 m de subida cuentan como 1 km llano (en bici, el km llano cuenta ¼).</p>
+          <summary>How is rarity decided?</summary>
+          <p>By the hardest day of the route, in <b>effort-km</b>: every 100 m of climb counts as 1 km on the flat (by bike, a flat km counts ¼).</p>
           <ul>
-            <li>Común: menos de 12</li><li>Rara: 12 o más</li><li>Épica: 22 o más</li><li>Legendaria: 35 o más</li>
+            <li>Common: under 12</li><li>Rare: 12 or more</li><li>Epic: 22 or more</li><li>Legendary: 35 or more</li>
           </ul>
-          <p>Sube un nivel si pasas de 3.000 m de altitud o si es una travesía de 3 días o más. Por encima de 5.000 m siempre es Legendaria.</p>
+          <p>It goes up one level above 3,000 m of altitude or for trips of 3 days or more. Above 5,000 m it is always Legendary.</p>
         </details>
       </aside>
       <main class="cv-main">
@@ -465,13 +465,13 @@ function achievementsView(list) {
     <div class="ach-view">
       <header class="ach-head">
         <div>
-          <h1>Logros</h1>
-          <p>${done} de ${list.length} conseguidos</p>
+          <h1>Achievements</h1>
+          <p>${done} of ${list.length} unlocked</p>
           <div class="ach-total"><i style="width:${(done / list.length) * 100}%"></i></div>
         </div>
         <div class="ach-counts">${[...RARITIES].reverse().map((r) => {
           const lvl = RARITIES.indexOf(r);
-          return `<span style="--rc:${r.color}">${gems(lvl, r.color)}<b>${byLevel[lvl]}</b> ${r.males}</span>`;
+          return `<span style="--rc:${r.color}">${gems(lvl, r.color)}<b>${byLevel[lvl]}</b> ${r.name.toLowerCase()}</span>`;
         }).join("")}</div>
       </header>
       ${CATEGORIES.map((cat) => {
@@ -492,11 +492,11 @@ function achievementTile(a, icon) {
     <article class="ach${a.done ? " done" : ""}" style="--rc:${r.color};--rs:${r.soft}">
       ${hexMedal({ color: r.color, soft: r.soft, icon, locked: !a.done, size: 52 })}
       <div class="ach-body">
-        <span class="ach-rarity">${gems(a.level, a.done ? r.color : "#b9c0b7")}${r.male}</span>
+        <span class="ach-rarity">${gems(a.level, a.done ? r.color : "#b9c0b7")}${r.name}</span>
         <strong>${esc(a.name)}</strong>
         <span class="ach-desc">${esc(a.desc)}</span>
         ${a.done
-          ? `<span class="ach-when">${a.unlock?.date ? `Conseguido el ${fmtDate(a.unlock.date).toLowerCase()}` : "Conseguido"}</span>`
+          ? `<span class="ach-when">${a.unlock?.date ? `Unlocked ${fmtDate(a.unlock.date)}` : "Unlocked"}</span>`
           : `<span class="ach-progress"><i style="width:${pct}%"></i></span><span class="ach-when">${a.unit(a.value)} / ${a.unit(a.goal)}</span>`}
       </div>
     </article>`;

@@ -23,8 +23,8 @@ export async function startTracking(onFix, onError) {
 async function startNative(onFix, onError) {
   const id = await BackgroundGeolocation.addWatcher(
     {
-      backgroundTitle: "Grabando ruta",
-      backgroundMessage: "Trail Globe está grabando tu ruta. Toca para volver a la app.",
+      backgroundTitle: "Recording route",
+      backgroundMessage: "Trail Globe is recording your route. Tap to return to the app.",
       requestPermissions: true,
       stale: false,
       distanceFilter: 3, // metros mínimos entre posiciones

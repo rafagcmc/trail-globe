@@ -8,7 +8,7 @@
 // - Mapas y relieve: no se guardan (ocuparían cientos de MB). Sin conexión verás tus
 //   rutas y datos, pero el fondo del mapa solo donde el navegador lo tenga en caché.
 
-const CACHE = "trail-globe-v1";
+const CACHE = "trail-globe-v2"; // v2: app en inglés (fronteras y rutas de ejemplo nuevas)
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", "manifest.webmanifest", "icons/icon-192.png"])));

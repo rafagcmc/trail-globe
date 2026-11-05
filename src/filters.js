@@ -33,9 +33,9 @@ export function applyFilters(routes, { query, activity, period, country = "all" 
 export function periodOptions(routes) {
   const years = [...new Set(routes.map((r) => r.date?.slice(0, 4)).filter(Boolean))].sort().reverse();
   return [
-    ["all", "Cualquier fecha"],
-    ["30d", "Últimos 30 días"],
-    ["12m", "Últimos 12 meses"],
+    ["all", "Any date"],
+    ["30d", "Last 30 days"],
+    ["12m", "Last 12 months"],
     ...years.map((y) => [y, y]),
   ];
 }
@@ -44,7 +44,7 @@ export function periodOptions(routes) {
 export function countryOptions(routes) {
   const names = new Map();
   for (const r of routes) for (const c of r.geo?.countries ?? []) names.set(c.iso, c.name);
-  return [...names].sort((a, b) => a[1].localeCompare(b[1], "es"));
+  return [...names].sort((a, b) => a[1].localeCompare(b[1], "en"));
 }
 
 export const hasActiveFilters = (f) =>

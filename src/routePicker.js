@@ -17,15 +17,15 @@ export function pickRoutes({ folder, routes, folders }) {
 
   dialog.innerHTML = `
     <form method="dialog" class="dialog-form">
-      <h2>Añadir rutas a “${esc(folder.name)}”</h2>
+      <h2>Add routes to “${esc(folder.name)}”</h2>
       <label class="search">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input type="search" placeholder="Buscar por nombre o notas…" aria-label="Buscar">
+        <input type="search" placeholder="Search by name or notes…" aria-label="Search">
       </label>
       <ul class="picker-list"></ul>
       <div class="dialog-actions">
-        <button class="btn secondary" value="cancel" formnovalidate>Cancelar</button>
-        <button class="btn primary" value="save" disabled>Añadir</button>
+        <button class="btn secondary" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="save" disabled>Add</button>
       </div>
     </form>`;
 
@@ -36,11 +36,11 @@ export function pickRoutes({ folder, routes, folders }) {
   function render() {
     const visible = applyFilters(candidates, { query: search.value, activity: "all", period: "all" });
     if (!candidates.length) {
-      list.innerHTML = `<li class="empty">Todas tus rutas ya están en esta carpeta.</li>`;
+      list.innerHTML = `<li class="empty">All your routes are already in this folder.</li>`;
       return;
     }
     if (!visible.length) {
-      list.innerHTML = `<li class="empty">Ninguna ruta coincide con “${esc(search.value)}”.</li>`;
+      list.innerHTML = `<li class="empty">No routes match “${esc(search.value)}”.</li>`;
       return;
     }
     list.innerHTML = visible.map((r) => {
@@ -52,7 +52,7 @@ export function pickRoutes({ folder, routes, folders }) {
             <i class="activity-bar" style="background:${activityOf(r.activity).color}"></i>
             <span class="info">
               <strong>${esc(r.name)}</strong>
-              <span>${fmtDate(r.date)} · ${fmtKm(computeStats(r.points).distanceKm)}${other ? ` · está en “${esc(other)}”` : ""}</span>
+              <span>${fmtDate(r.date)} · ${fmtKm(computeStats(r.points).distanceKm)}${other ? ` · in “${esc(other)}”` : ""}</span>
             </span>
           </label>
         </li>`;
@@ -67,7 +67,7 @@ export function pickRoutes({ folder, routes, folders }) {
 
   function updateButton() {
     addButton.disabled = chosen.size === 0;
-    addButton.textContent = chosen.size ? `Añadir ${chosen.size} ${chosen.size === 1 ? "ruta" : "rutas"}` : "Añadir";
+    addButton.textContent = chosen.size ? `Add ${chosen.size} ${chosen.size === 1 ? "route" : "routes"}` : "Add";
   }
 
   // Al buscar, las rutas ya marcadas siguen marcadas aunque desaparezcan de la lista

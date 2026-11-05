@@ -65,7 +65,7 @@ export async function buildAlbum(routes) {
     result.push({
       iso: c.iso,
       name: c.name,
-      continent: continentOf.get(c.iso) ?? "Otros",
+      continent: continentOf.get(c.iso) ?? "Other",
       regions,
       visited: regions.filter((r) => r.routes.length).length,
       routeCount: c.routes.size,

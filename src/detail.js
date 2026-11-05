@@ -45,13 +45,13 @@ export async function renderDetail(panel, route, view, h) {
   const highlight = day ? [cum[day.start], cum[day.end]] : null;
 
   panel.innerHTML = `
-    ${backButton(view.editing ? "Volver a la ruta" : view.backLabel)}
+    ${backButton(view.editing ? "Back to route" : view.backLabel)}
     <div class="detail-title">
       <h2>${esc(route.name)}</h2>
       <div class="meta">
         <span class="chip"><i style="background:${activity.color}"></i>${activity.label}</span>
         ${rarityChip(route)}
-        <span>${multiDay ? `${days.length} días · ` : ""}${fmtDate(route.date, true)}</span>
+        <span>${multiDay ? `${days.length} days · ` : ""}${fmtDate(route.date, true)}</span>
       </div>
       ${view.folderName ? `<div class="meta folder-meta">${ICON_FOLDER}<span>${esc(view.folderName)}</span></div>` : ""}
     </div>
@@ -59,39 +59,39 @@ export async function renderDetail(panel, route, view, h) {
       ${multiDay ? dayTabsHtml(days.length, view.day) : ""}
       ${day ? dayHeaderHtml(route, days, view.day, cum) : ""}
       <div class="stat-grid">
-        ${stat(fmtKm(s.distanceKm), "Distancia")}
-        ${stat(fmtDuration(duration), "Duración")}
-        ${stat(meters(s.gainM, "+"), "Desnivel +")}
-        ${stat(meters(s.lossM, "−"), "Desnivel −")}
-        ${stat(meters(s.maxEleM), "Altitud máx.")}
-        ${stat(speed ? fmtSpeed(speed) : "—", "Velocidad media")}
+        ${stat(fmtKm(s.distanceKm), "Distance")}
+        ${stat(fmtDuration(duration), "Duration")}
+        ${stat(meters(s.gainM, "+"), "Elevation gain")}
+        ${stat(meters(s.lossM, "−"), "Elevation loss")}
+        ${stat(meters(s.maxEleM), "Max altitude")}
+        ${stat(speed ? fmtSpeed(speed) : "—", "Average speed")}
       </div>
       <section>
-        <div class="section-label">${day ? `Perfil · día ${view.day + 1} resaltado` : "Perfil de elevación"}</div>
+        <div class="section-label">${day ? `Profile · day ${view.day + 1} highlighted` : "Elevation profile"}</div>
         ${profileSvg(profile, activity.color, { splitsKm, highlight })}
         ${axisHtml(totalKm, multiDay ? days.length : 0)}
       </section>
       <button class="btn dashed" data-action="edit-stages">
-        ${multiDay ? "✂ Editar etapas: dividir o unir días" : "✂ Dividir en días"}
+        ${multiDay ? "✂ Edit stages: split or join days" : "✂ Split into days"}
       </button>
       ${day ? `
         <section>
-          <div class="section-label">Notas del día ${view.day + 1}</div>
-          <textarea class="day-notes" rows="3" placeholder="Qué pasó este día, dónde dormiste…">${esc(route.dayNotes[day.start] ?? "")}</textarea>
+          <div class="section-label">Notes for day ${view.day + 1}</div>
+          <textarea class="day-notes" rows="3" placeholder="What happened this day, where you slept…">${esc(route.dayNotes[day.start] ?? "")}</textarea>
         </section>` : `
         ${route.notes ? `
           <section>
-            <div class="section-label">Notas</div>
+            <div class="section-label">Notes</div>
             <p class="notes">${esc(route.notes)}</p>
           </section>` : ""}
         ${route.photoIds.length ? `
           <section>
-            <div class="section-label">Fotos · ${route.photoIds.length}</div>
+            <div class="section-label">Photos · ${route.photoIds.length}</div>
             <div class="photo-grid" id="detailPhotos"></div>
           </section>` : ""}`}
       <div class="detail-actions">
-        <button class="btn secondary" data-action="edit">Editar</button>
-        <button class="btn danger" data-action="delete">Borrar</button>
+        <button class="btn secondary" data-action="edit">Edit</button>
+        <button class="btn danger" data-action="delete">Delete</button>
       </div>`}`;
 
   const $ = (sel) => panel.querySelector(sel);
@@ -120,7 +120,7 @@ export async function renderDetail(panel, route, view, h) {
     const link = document.createElement("a");
     link.href = url;
     link.target = "_blank";
-    link.innerHTML = `<img src="${url}" alt="Foto de la ruta">`;
+    link.innerHTML = `<img src="${url}" alt="Route photo">`;
     grid.appendChild(link);
   }
 }
@@ -136,7 +136,7 @@ function dayHeaderHtml(route, days, k, cum) {
   const date = dayDate(route.points, d);
   return `
     <div class="day-header">
-      <strong>Día ${k + 1} de ${days.length}</strong>
+      <strong>Day ${k + 1} of ${days.length}</strong>
       <span>${date ? `${fmtDate(date, true)} · ` : ""}km ${fmtKm(cum[d.start]).replace(" km", "")} – ${fmtKm(cum[d.end])}</span>
     </div>`;
 }
@@ -152,8 +152,8 @@ function axisHtml(totalKm, dayCount) {
 function editorHtml(route, days, cum, profile, splitsKm, color) {
   return `
     <section class="stage-editor">
-      <div class="section-label">Editar etapas</div>
-      <p class="help">Pulsa en el perfil el punto donde terminó cada día para dividir la ruta. Al pasar el dedo o el ratón por el perfil, el punto se marca en el mapa.</p>
+      <div class="section-label">Edit stages</div>
+      <p class="help">Tap the profile where each day ended to split the route. Moving your finger or mouse over the profile marks that point on the map.</p>
       <div class="profile-wrap" id="stageProfile">
         ${profileSvg(profile, color, { splitsKm, tall: true })}
         <div class="cursor" hidden><span></span></div>
@@ -161,12 +161,12 @@ function editorHtml(route, days, cum, profile, splitsKm, color) {
       <ul class="stage-list">
         ${days.map((d, k) => `
           <li>
-            <strong>Día ${k + 1}</strong>
+            <strong>Day ${k + 1}</strong>
             <span>km ${fmtKm(cum[d.start]).replace(" km", "")} – ${fmtKm(cum[d.end])}</span>
-            ${k > 0 ? `<button class="link" data-merge="${d.start}" title="Unir con el día ${k}">Unir con el día ${k}</button>` : ""}
+            ${k > 0 ? `<button class="link" data-merge="${d.start}" title="Join with day ${k}">Join with day ${k}</button>` : ""}
           </li>`).join("")}
       </ul>
-      <button class="btn primary" data-action="done">Listo</button>
+      <button class="btn primary" data-action="done">Done</button>
     </section>`;
 }
 
@@ -210,7 +210,7 @@ function profileSvg(profile, color, { splitsKm = [], highlight = null, tall = fa
   // Con un día resaltado, el resto del área se aclara
   const dim = highlight ? 0.08 : 0.35;
   return `
-    <svg class="profile${tall ? " tall" : ""}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Perfil de elevación">
+    <svg class="profile${tall ? " tall" : ""}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Elevation profile">
       <defs>
         <linearGradient id="profileFill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="${color}" stop-opacity="${dim}"/>

@@ -7,14 +7,14 @@ export function parseTrack(text, fileName) {
   const xml = new DOMParser().parseFromString(text, "application/xml");
 
   if (xml.getElementsByTagName("parsererror").length > 0) {
-    throw new Error("El archivo no es un XML válido.");
+    throw new Error("The file is not valid XML.");
   }
 
   const ext = fileName.toLowerCase().split(".").pop();
   const { points, trackStarts } = ext === "kml" ? { points: parseKml(xml), trackStarts: [] } : parseGpx(xml);
 
   if (points.length < 2) {
-    throw new Error("No he encontrado una ruta (hacen falta al menos 2 puntos).");
+    throw new Error("No route found (at least 2 points are needed).");
   }
   return { points, date: findDate(xml), trackStarts };
 }

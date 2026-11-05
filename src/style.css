@@ -978,3 +978,7 @@ button, input, textarea { font: inherit; color: inherit; }
   .rec-gps { margin: 10px 0; }
   .rec-start h2 { margin: 12px 0 10px; }
 }
+
+/* Cabecera con Importar y Grabar: el título nunca se parte en dos líneas */
+.panel-header h1 { white-space: nowrap; }
+.panel-header .btn { flex-shrink: 0; padding: 8px 12px; white-space: nowrap; }

@@ -9,25 +9,25 @@ import { placesOf } from "./album.js";
 import { fmtM, esc } from "./format.js";
 import { dayRanges } from "./stages.js";
 
-const km1 = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 });
+const km1 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 
 export function cardHtml(route, number) {
   const { level, rarity } = rarityOf(route);
   const s = computeStats(route.points);
   const days = dayRanges(route.points, route.stageStarts ?? []).length;
   const place = placesOf(route);
-  const where = [place.regions[0]?.name, place.countries.length > 1 ? `${place.countries.length} países` : place.countries[0]?.name]
+  const where = [place.regions[0]?.name, place.countries.length > 1 ? `${place.countries.length} countries` : place.countries[0]?.name]
     .filter(Boolean).join(", ");
   return `
     <button class="card r-${rarity.id}" data-route="${route.id}" style="--rc:${rarity.color};--rs:${rarity.soft}" title="${esc(route.name)} · ${rarity.name}">
       <span class="card-top">${gems(level, rarity.color)}<span class="card-rarity">${rarity.name}</span><span class="card-no">#${String(number ?? 0).padStart(3, "0")}</span></span>
-      <span class="card-art">${artSvg(route, rarity.color)}${days > 1 ? `<span class="card-days">${days} días</span>` : ""}</span>
+      <span class="card-art">${artSvg(route, rarity.color)}${days > 1 ? `<span class="card-days">${days} days</span>` : ""}</span>
       <span class="card-name">${esc(route.name)}</span>
       <span class="card-place"><i style="background:${activityOf(route.activity).color}"></i><span>${esc(where || activityOf(route.activity).label)}</span></span>
       <span class="card-stats">
         <span><b>${km1.format(s.distanceKm)}</b>km</span>
         <span><b>+${s.gainM == null ? "—" : fmtM(s.gainM)}</b>m</span>
-        <span><b>${s.maxEleM == null ? "—" : fmtM(s.maxEleM)}</b>m máx</span>
+        <span><b>${s.maxEleM == null ? "—" : fmtM(s.maxEleM)}</b>m max</span>
       </span>
     </button>`;
 }

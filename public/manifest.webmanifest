@@ -1,8 +1,8 @@
 {
   "name": "Trail Globe",
   "short_name": "Trail Globe",
-  "description": "Tu diario de rutas de senderismo, bici y Camino sobre un globo 3D.",
-  "lang": "es",
+  "description": "Your diary of hikes, bike rides and Camino stages on a 3D globe.",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

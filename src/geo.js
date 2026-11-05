@@ -7,7 +7,7 @@
 import { haversine } from "./stats.js";
 
 // Si cambian los datos o el método, sube este número: las rutas se recalculan solas
-export const GEO_VERSION = 1;
+export const GEO_VERSION = 2; // 2: nombres de países y regiones en inglés
 
 const SAMPLE_EVERY_KM = 0.5; // comprobamos un punto cada medio kilómetro
 const BASE = `${import.meta.env.BASE_URL}geo`;

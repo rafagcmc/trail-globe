@@ -213,7 +213,7 @@ function showStageOnMap(route, dayIndex = -1) {
     type: "FeatureCollection",
     features: (route?.stageStarts ?? []).map((i, k) => ({
       type: "Feature",
-      properties: { label: `Noche ${k + 1}` },
+      properties: { label: `Night ${k + 1}` },
       geometry: { type: "Point", coordinates: [route.points[i].lon, route.points[i].lat] },
     })),
   });
@@ -264,7 +264,7 @@ function showHome(options = {}) {
     hasDemo: routes.some((r) => r.demo),
     onOpenFolder: showFolder,
     onNewFolder: async () => {
-      const name = prompt("Nombre de la carpeta:")?.trim();
+      const name = prompt("Folder name:")?.trim();
       if (name) { await createFolder(name); showHome(); }
     },
   });
@@ -297,14 +297,14 @@ function showFolder(id) {
       showFolder(id);
     },
     onRename: async () => {
-      const name = prompt("Nuevo nombre de la carpeta:", folder.name)?.trim();
+      const name = prompt("New folder name:", folder.name)?.trim();
       if (!name) return;
       folder.name = name;
       await saveFolder(folder);
       showFolder(id);
     },
     onDelete: async () => {
-      if (!confirm(`¿Borrar la carpeta "${folder.name}"? Sus rutas no se borran: pasan a "Sin carpeta".`)) return;
+      if (!confirm(`Delete the folder "${folder.name}"? Its routes are kept and moved to "No folder".`)) return;
       for (const r of routes.filter((r) => r.folderId === id)) {
         r.folderId = null;
         await saveRoute(r);
@@ -338,7 +338,7 @@ function showDetail(route, { day = -1, editing = false, fly = true } = {}) {
   renderDetail(panel, route, {
     day,
     editing,
-    backLabel: inFolder ? (folderById(ui.folderId)?.name ?? "Sin carpeta") : "Mis rutas",
+    backLabel: inFolder ? (folderById(ui.folderId)?.name ?? "No folder") : "My routes",
     folderName: folderById(route.folderId)?.name ?? null,
   }, {
     onBack: () => (inFolder ? showFolder(ui.folderId) : showHome()),
@@ -351,7 +351,7 @@ function showDetail(route, { day = -1, editing = false, fly = true } = {}) {
     onAddSplit: async (km) => {
       const before = route.stageStarts.length;
       route.stageStarts = cleanStarts([...route.stageStarts, indexAtKm(cum, km)], route.points.length);
-      if (route.stageStarts.length === before) return showError("Demasiado cerca de otra división o de un extremo de la ruta.");
+      if (route.stageStarts.length === before) return showError("Too close to another split or to the end of the route.");
       await saveRoute(route);
       showDetail(route, stay);
     },
@@ -393,7 +393,7 @@ async function storeNewPhotos(files) {
     try {
       ids.push(await savePhoto(await resizeImage(file)));
     } catch {
-      showError(`No he podido leer la foto ${file.name}.`);
+      showError(`Could not read the photo ${file.name}.`);
     }
   }
   return ids;
@@ -421,15 +421,15 @@ fileInput.addEventListener("change", async () => {
         .reduce((a, b) => a + b, 0) || null
     : stats.durationMin;
   const summary = [
-    `${parsed.points.length} puntos`,
+    `${parsed.points.length} points`,
     fmtKm(stats.distanceKm),
     stats.gainM !== null ? `+${fmtM(stats.gainM)} m` : null,
     durationMin ? fmtDuration(durationMin) : null,
-    stageStarts.length ? `${stageStarts.length + 1} días detectados` : null,
+    stageStarts.length ? `${stageStarts.length + 1} days detected` : null,
   ].filter(Boolean).join(" · ");
 
   const result = await openRouteDialog({
-    title: "Añadir ruta",
+    title: "Add route",
     fileInfo: { name: file.name, summary },
     values: {
       name: file.name.replace(/\.(gpx|kml)$/i, "").replace(/[-_]+/g, " "),
@@ -460,7 +460,7 @@ fileInput.addEventListener("change", async () => {
 });
 
 async function editRoute(route) {
-  const result = await openRouteDialog({ title: "Editar ruta", values: route, photoIds: route.photoIds, folders });
+  const result = await openRouteDialog({ title: "Edit route", values: route, photoIds: route.photoIds, folders });
   if (!result) return;
   await resolveFolder(result);
 
@@ -475,7 +475,7 @@ async function editRoute(route) {
 }
 
 async function removeRoute(route) {
-  if (!confirm(`¿Borrar "${route.name}"? No se puede deshacer.`)) return;
+  if (!confirm(`Delete "${route.name}"? This cannot be undone.`)) return;
   await deletePhotos(route.photoIds);
   await deleteRoute(route.id);
   routes = routes.filter((r) => r.id !== route.id);
@@ -521,7 +521,7 @@ async function openAlbum() {
   // Una entrada en el historial: el gesto "atrás" del móvil cierra la colección en vez de salir de la app
   if (albumEl.hidden && !history.state?.collection) history.pushState({ collection: true }, "");
   albumEl.hidden = false;
-  albumEl.innerHTML = `<p class="album-loading">Preparando la colección…</p>`;
+  albumEl.innerHTML = `<p class="album-loading">Preparing your collection…</p>`;
   await Promise.all(routes.map(ensureGeo));
   collection.data = await buildAlbum(routes);
   collection.achievements = await achievementsNow(collection.data);
@@ -601,9 +601,9 @@ function drawRecord() {
   else renderRecordStart(panel, { gps: rec.gps, activity: ui.recActivity }, h);
   const discard = panel.querySelector("[data-action=discard]");
   if (!discard && rec.active) {
-    panel.querySelector(".rec-live")?.insertAdjacentHTML("beforeend", `<button class="link rec-discard" data-action="discard">Descartar grabación</button>`);
+    panel.querySelector(".rec-live")?.insertAdjacentHTML("beforeend", `<button class="link rec-discard" data-action="discard">Discard recording</button>`);
     panel.querySelector("[data-action=discard]").onclick = async () => {
-      if (!confirm("¿Descartar la grabación? Se perderán los puntos grabados.")) return;
+      if (!confirm("Discard this recording? The recorded points will be lost.")) return;
       await rec.discard();
       showRecord();
     };
@@ -654,13 +654,13 @@ async function finishRecording() {
   rec.pause(); // el reloj se para mientras rellenas los datos
   const data = await rec.finish();
   if (data.points.length < 2) {
-    if (confirm("Aún no se ha grabado ningún punto (hace falta señal GPS). ¿Descartar la grabación?")) {
+    if (confirm("No points recorded yet (a GPS signal is needed). Discard the recording?")) {
       await rec.discard();
       showHome();
     }
     return;
   }
-  showError("Corrigiendo la altura con el mapa de relieve…");
+  showError("Correcting elevation with the terrain model…");
   const { points, corrected } = await withTerrainElevation(data.points);
   toast.hidden = true;
   const stats = computeStats(points);
@@ -671,12 +671,12 @@ async function finishRecording() {
     fmtKm(stats.distanceKm),
     stats.gainM !== null ? `+${fmtM(stats.gainM)} m` : null,
     fmtDuration(data.movingMin),
-    corrected ? "altura del relieve" : "altura del GPS (sin conexión)",
+    corrected ? "terrain elevation" : "GPS elevation (offline)",
   ].filter(Boolean).join(" · ");
 
   const result = await openRouteDialog({
-    title: "Guardar ruta grabada",
-    fileInfo: { name: "Grabada con el GPS", summary },
+    title: "Save recorded route",
+    fileInfo: { name: "Recorded with GPS", summary },
     values: {
       name: `${activityOf(data.activity).label} · ${fmtDate(isoDate)}`,
       date: isoDate,
@@ -733,8 +733,8 @@ function showAchievementToast(a, count) {
   const r = RARITIES[a.level];
   achToast.innerHTML = `
     ${hexMedal({ color: r.color, soft: r.soft, icon: CATEGORIES.find((c) => c.id === a.cat).icon, size: 40 })}
-    <span><small style="color:${r.color}">Logro ${r.male.toLowerCase()} desbloqueado</small>
-    <strong>${esc(a.name)}</strong>${count > 1 ? `<em>y ${count - 1} ${count === 2 ? "logro más" : "logros más"}</em>` : ""}</span>`;
+    <span><small style="color:${r.color}">Achievement unlocked</small>
+    <strong>${esc(a.name)}</strong>${count > 1 ? `<em>and ${count - 1} more</em>` : ""}</span>`;
   achToast.hidden = false;
   clearTimeout(showAchievementToast.timer);
   showAchievementToast.timer = setTimeout(() => (achToast.hidden = true), 5000);
@@ -754,7 +754,7 @@ async function toggleDemo() {
   try {
     await (routes.some((r) => r.demo) ? removeDemo() : loadDemo());
   } catch (err) {
-    showError(`No he podido cargar las rutas de ejemplo: ${err.message}`);
+    showError(`Could not load the sample routes: ${err.message}`);
   }
 }
 
@@ -764,7 +764,7 @@ async function loadDemo() {
     const res = await fetch(`${import.meta.env.BASE_URL}demo/routes.json`);
     data = await res.json();
   } catch (err) {
-    return showError(`No he podido cargar las rutas de ejemplo: ${err.message}`);
+    return showError(`Could not load the sample routes: ${err.message}`);
   }
   const folderIds = {};
   for (const name of new Set(data.routes.map((r) => r.folder).filter(Boolean))) {
@@ -799,7 +799,7 @@ async function loadDemo() {
 
 async function removeDemo() {
   const demo = routes.filter((r) => r.demo);
-  if (!confirm(`¿Quitar las ${demo.length} rutas de ejemplo? Tus rutas no se tocan.`)) return;
+  if (!confirm(`Remove the ${demo.length} sample routes? Your own routes are not touched.`)) return;
   for (const r of demo) await deleteRoute(r.id);
   for (const f of folders.filter((f) => f.demo)) await deleteFolder(f.id);
   routes = routes.filter((r) => !r.demo);
@@ -813,7 +813,7 @@ async function init() {
     routes = (await loadRoutes()).map(withDefaults);
     folders = await loadFolders();
   } catch (err) {
-    showError(`No he podido leer las rutas guardadas: ${err.message}`);
+    showError(`Could not read your saved routes: ${err.message}`);
   }
   // No esperamos al mapa: el panel aparece al instante y las rutas
   // se dibujan en cuanto el mapa termine de cargar (ver map.on("load"))

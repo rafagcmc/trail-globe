@@ -14,11 +14,10 @@ import { dayRanges } from "./stages.js";
 import { fmtM } from "./format.js";
 
 export const RARITIES = [
-  // name = para cartas (femenino); male / males = para logros ("logro épico", "3 épicos")
-  { id: "common", name: "Común", male: "Común", males: "comunes", color: "#7d8681", soft: "#f2f3f1" },
-  { id: "rare", name: "Rara", male: "Raro", males: "raros", color: "#2f7bbf", soft: "#e9f2fa" },
-  { id: "epic", name: "Épica", male: "Épico", males: "épicos", color: "#7a4cc2", soft: "#f1ebfa" },
-  { id: "legendary", name: "Legendaria", male: "Legendario", males: "legendarios", color: "#c98a12", soft: "#fdf3dc" },
+  { id: "common", name: "Common", color: "#7d8681", soft: "#f2f3f1" },
+  { id: "rare", name: "Rare", color: "#2f7bbf", soft: "#e9f2fa" },
+  { id: "epic", name: "Epic", color: "#7a4cc2", soft: "#f1ebfa" },
+  { id: "legendary", name: "Legendary", color: "#c98a12", soft: "#fdf3dc" },
 ];
 
 // Km-esfuerzo del día más duro a partir del cual sube la rareza
@@ -47,17 +46,17 @@ export function rarityOf(route) {
   const total = computeStats(route.points);
 
   let level = EFFORT_STEPS.filter((step) => hardest >= step).length;
-  const reasons = [`${days.length > 1 ? "Día más duro" : "Esfuerzo"}: ${Math.round(hardest)} km-esfuerzo`];
+  const reasons = [`${days.length > 1 ? "Hardest day" : "Effort"}: ${Math.round(hardest)} effort-km`];
   if (total.maxEleM >= VERY_HIGH_M) {
     level = 3;
-    reasons.push(`Altitud extrema: ${fmtM(total.maxEleM)} m`);
+    reasons.push(`Extreme altitude: ${fmtM(total.maxEleM)} m`);
   } else if (total.maxEleM >= HIGH_M) {
     level += 1;
-    reasons.push(`Alta montaña: ${fmtM(total.maxEleM)} m`);
+    reasons.push(`High mountain: ${fmtM(total.maxEleM)} m`);
   }
   if (days.length >= LONG_TRIP_DAYS) {
     level += 1;
-    reasons.push(`Travesía de ${days.length} días`);
+    reasons.push(`${days.length}-day trip`);
   }
   level = Math.min(level, 3);
 

@@ -26,8 +26,8 @@ export function collectionSummary(routes) {
   }
   // Igual que en la colección: solo cuentan las regiones de los países que cuentan
   for (const r of routes) for (const g of placesOf(r).regions) if (countries.has(g.iso)) regions.add(g.id);
-  if (!countries.size) return routes.length ? "Calculando países y regiones…" : "Colecciona países y regiones con tus rutas";
-  return `${countries.size} ${countries.size === 1 ? "país" : "países"} · ${regions.size} ${regions.size === 1 ? "insignia" : "insignias"}`;
+  if (!countries.size) return routes.length ? "Working out countries and regions…" : "Collect countries and regions with your routes";
+  return `${countries.size} ${countries.size === 1 ? "country" : "countries"} · ${regions.size} ${regions.size === 1 ? "badge" : "badges"}`;
 }
 
 const stat = (value, label) =>
@@ -43,27 +43,27 @@ export function renderHome(panel, state, handlers) {
   panel.innerHTML = `
     <header class="panel-header">
       <h1>Trail Globe</h1>
-      <button class="btn secondary" data-action="add" title="Añadir una ruta desde un archivo GPX o KML">Importar</button>
-      <button class="btn primary rec-cta" data-action="record"><span class="rec-dot"></span>Grabar</button>
+      <button class="btn secondary" data-action="add" title="Add a route from a GPX or KML file">Import</button>
+      <button class="btn primary rec-cta" data-action="record"><span class="rec-dot"></span>Record</button>
     </header>
     ${state.recBanner ?? ""}
     <label class="search">
       ${ICON_SEARCH}
-      <input type="search" placeholder="Buscar ruta, lugar o país…" value="${esc(filters.query)}" aria-label="Buscar">
+      <input type="search" placeholder="Search routes, places or countries…" value="${esc(filters.query)}" aria-label="Search">
     </label>
     <div class="stat-row" id="totals"></div>
     <button class="collection-card" data-action="album">
       ${ICON_BADGE}
-      <span class="cc-text"><strong>Mi colección</strong><span class="cc-sub">${esc(collectionSummary(routes))}</span></span>
-      <span class="cc-open">Abrir ${CHEVRON}</span>
+      <span class="cc-text"><strong>My collection</strong><span class="cc-sub">${esc(collectionSummary(routes))}</span></span>
+      <span class="cc-open">Open ${CHEVRON}</span>
     </button>
     <div class="tabs" role="tablist">
-      <button role="tab" data-tab="list" aria-selected="${tab === "list"}">Lista</button>
-      <button role="tab" data-tab="folders" aria-selected="${tab === "folders"}">Carpetas</button>
+      <button role="tab" data-tab="list" aria-selected="${tab === "list"}">List</button>
+      <button role="tab" data-tab="folders" aria-selected="${tab === "folders"}">Folders</button>
     </div>
     <div id="homeContent"></div>
     <footer class="panel-foot">
-      <button class="link" data-action="demo">${state.hasDemo ? "Quitar rutas de ejemplo" : "Cargar rutas de ejemplo"}</button>
+      <button class="link" data-action="demo">${state.hasDemo ? "Remove sample routes" : "Load sample routes"}</button>
     </footer>`;
 
   panel.querySelector('[data-action="demo"]').addEventListener("click", handlers.onDemo);
@@ -94,19 +94,19 @@ export function renderHome(panel, state, handlers) {
   // Pestaña Lista: filtros + resultados
   content.innerHTML = `
     <div class="filters">
-      <select class="pill" data-filter="activity" aria-label="Actividad">
-        <option value="all">Actividad</option>
+      <select class="pill" data-filter="activity" aria-label="Activity">
+        <option value="all">Activity</option>
         ${Object.entries(ACTIVITIES).map(([k, a]) => `<option value="${k}">${a.label}</option>`).join("")}
       </select>
       ${countryOptions(routes).length ? `
-        <select class="pill" data-filter="country" aria-label="País">
-          <option value="all">País</option>
+        <select class="pill" data-filter="country" aria-label="Country">
+          <option value="all">Country</option>
           ${countryOptions(routes).map(([iso, name]) => `<option value="${iso}">${esc(name)}</option>`).join("")}
         </select>` : ""}
-      <select class="pill" data-filter="period" aria-label="Fecha">
+      <select class="pill" data-filter="period" aria-label="Date">
         ${periodOptions(routes).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}
       </select>
-      <button class="clear" hidden>Quitar filtros</button>
+      <button class="clear" hidden>Clear filters</button>
     </div>
     <div class="section-label" id="resultsLabel"></div>
     <div id="results"></div>`;
@@ -123,14 +123,14 @@ export function renderHome(panel, state, handlers) {
     for (const sel of selects) sel.classList.toggle("active", sel.value !== "all");
     clear.hidden = !hasActiveFilters(filters);
     content.querySelector("#resultsLabel").textContent = hasActiveFilters(filters)
-      ? `${visible.length} de ${routes.length} rutas`
-      : "Mis rutas";
+      ? `${visible.length} of ${routes.length} routes`
+      : "My routes";
     const results = content.querySelector("#results");
     results.innerHTML = routeListHtml(
       visible,
       routes.length
-        ? "Ninguna ruta coincide con los filtros."
-        : "Aún no tienes rutas. Pulsa <b>+ Añadir ruta</b> y sube un archivo GPX o KML, o carga las rutas de ejemplo para probar."
+        ? "No routes match the filters."
+        : "No routes yet. Press <b>Record</b> to track one with your GPS, <b>Import</b> a GPX or KML file, or load the sample routes to try the app."
     );
     bindRouteItems(results, routes, handlers.onOpen);
     handlers.onVisibleChange(visible);
@@ -152,23 +152,23 @@ export function renderHome(panel, state, handlers) {
 
 function renderFolderList(content, routes, folders, { onOpenFolder, onNewFolder }) {
   const rows = [...folders]
-    .sort((a, b) => a.name.localeCompare(b.name, "es"))
+    .sort((a, b) => a.name.localeCompare(b.name, "en"))
     .map((f) => {
       const inFolder = routes.filter((r) => r.folderId === f.id);
       const km = inFolder.reduce((sum, r) => sum + computeStats(r.points).distanceKm, 0);
-      const count = `${inFolder.length} ${inFolder.length === 1 ? "ruta" : "rutas"}`;
-      return folderRow(f.id, f.name, inFolder.length ? `${count} · ${fmtKm(km)}` : "Vacía");
+      const count = `${inFolder.length} ${inFolder.length === 1 ? "route" : "routes"}`;
+      return folderRow(f.id, f.name, inFolder.length ? `${count} · ${fmtKm(km)}` : "Empty");
     });
   const loose = routes.filter((r) => !r.folderId).length;
-  if (loose) rows.push(folderRow("", "Sin carpeta", `${loose} ${loose === 1 ? "ruta" : "rutas"}`, true));
+  if (loose) rows.push(folderRow("", "No folder", `${loose} ${loose === 1 ? "route" : "routes"}`, true));
 
   content.innerHTML = `
     <div class="section-header">
-      <div class="section-label">Carpetas</div>
+      <div class="section-label">Folders</div>
       <button class="link" data-action="new-folder">+ Nueva</button>
     </div>
     ${rows.length ? `<ul class="route-list">${rows.join("")}</ul>`
-      : `<p class="empty">Crea carpetas para agrupar rutas: un viaje, una sierra, un Camino…</p>`}`;
+      : `<p class="empty">Create folders to group routes: a trip, a mountain range, a Camino…</p>`}`;
 
   content.querySelector('[data-action="new-folder"]').addEventListener("click", onNewFolder);
   for (const el of content.querySelectorAll(".folder-row")) {
@@ -193,23 +193,23 @@ export function renderFolder(panel, { folder, routes }, handlers) {
   const { onBack, onOpen, onRename, onDelete, onVisibleChange, onAddExisting, onRemoveRoute } = handlers;
   releasePhotos();
   panel.innerHTML = `
-    ${backButton("Carpetas")}
-    <div class="detail-title"><h2>${esc(folder ? folder.name : "Sin carpeta")}</h2></div>
+    ${backButton("Folders")}
+    <div class="detail-title"><h2>${esc(folder ? folder.name : "No folder")}</h2></div>
     <div class="stat-row">${totalsHtml(routes)}</div>
     ${folder ? `
       <div class="folder-actions">
-        <button class="btn primary" data-action="add-existing">+ Añadir rutas</button>
+        <button class="btn primary" data-action="add-existing">+ Add routes</button>
       </div>` : ""}
-    <div class="section-label">Rutas</div>
+    <div class="section-label">Routes</div>
     <div id="results">${routeListHtml(
       routes,
-      "Esta carpeta está vacía. Pulsa <b>+ Añadir rutas</b> para elegir entre las que ya tienes.",
+      "This folder is empty. Press <b>+ Add routes</b> to pick from the routes you already have.",
       { removable: !!folder }
     )}</div>
     ${folder ? `
       <div class="detail-actions">
         <button class="btn secondary" data-action="rename">Renombrar</button>
-        <button class="btn danger" data-action="delete">Borrar carpeta</button>
+        <button class="btn danger" data-action="delete">Delete folder</button>
       </div>` : ""}`;
 
   const results = panel.querySelector("#results");
@@ -236,7 +236,7 @@ function totalsHtml(routes) {
   }
   // Con muchas rutas los totales crecen: sin decimales a partir de 100 km para que quepan
   const kmText = km >= 100 ? `${fmtM(km)} km` : fmtKm(km);
-  return stat(routes.length, "Rutas") + stat(kmText, "Distancia") + stat(`${fmtM(gain)} m`, "Desnivel +");
+  return stat(routes.length, "Routes") + stat(kmText, "Distance") + stat(`${fmtM(gain)} m`, "Elevation +");
 }
 
 function routeListHtml(routes, emptyText, { removable = false } = {}) {
@@ -255,7 +255,7 @@ function bindRouteItems(container, routes, onOpen) {
 
 function routeItem({ route, stats }, removable = false) {
   const gain = stats.gainM !== null ? ` · +${fmtM(stats.gainM)} m` : "";
-  const days = route.stageStarts?.length ? ` · ${route.stageStarts.length + 1} días` : "";
+  const days = route.stageStarts?.length ? ` · ${route.stageStarts.length + 1} days` : "";
   return `
     <li class="${removable ? "removable" : ""}">
       <button class="route-item" data-id="${route.id}">
@@ -266,6 +266,6 @@ function routeItem({ route, stats }, removable = false) {
         </span>
         ${CHEVRON}
       </button>
-      ${removable ? `<button class="remove-from-folder" data-id="${route.id}" title="Quitar de la carpeta" aria-label="Quitar de la carpeta">×</button>` : ""}
+      ${removable ? `<button class="remove-from-folder" data-id="${route.id}" title="Remove from folder" aria-label="Remove from folder">×</button>` : ""}
     </li>`;
 }

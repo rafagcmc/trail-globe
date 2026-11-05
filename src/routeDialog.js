@@ -25,24 +25,24 @@ export function openRouteDialog({ title, fileInfo = null, values, photoIds = [],
           <span>${esc(fileInfo.summary)}</span>
         </div>` : ""}
       <label class="field">
-        <span>Nombre</span>
+        <span>Name</span>
         <input name="name" required maxlength="120" value="${esc(values.name)}">
       </label>
       <div class="field-row">
         <label class="field">
-          <span>Fecha</span>
+          <span>Date</span>
           <input type="date" name="date" value="${values.date ?? ""}">
         </label>
         <div class="field">
-          <span>Duración</span>
+          <span>Duration</span>
           <div class="duration">
-            <input type="number" name="hours" min="0" max="999" value="${hours}" aria-label="Horas"> h
-            <input type="number" name="minutes" min="0" max="59" value="${minutes}" aria-label="Minutos"> min
+            <input type="number" name="hours" min="0" max="999" value="${hours}" aria-label="Hours"> h
+            <input type="number" name="minutes" min="0" max="59" value="${minutes}" aria-label="Minutes"> min
           </div>
         </div>
       </div>
       <fieldset class="field">
-        <span>Tipo de actividad</span>
+        <span>Activity</span>
         <div class="chips">
           ${Object.entries(ACTIVITIES).map(([key, a]) => `
             <label class="chip selectable">
@@ -52,32 +52,32 @@ export function openRouteDialog({ title, fileInfo = null, values, photoIds = [],
         </div>
       </fieldset>
       <div class="field">
-        <span>Carpeta</span>
+        <span>Folder</span>
         <select name="folderId">
-          <option value="">Ninguna</option>
-          ${[...folders].sort((a, b) => a.name.localeCompare(b.name, "es")).map((f) => `
+          <option value="">None</option>
+          ${[...folders].sort((a, b) => a.name.localeCompare(b.name, "en")).map((f) => `
             <option value="${f.id}" ${f.id === values.folderId ? "selected" : ""}>${esc(f.name)}</option>`).join("")}
-          <option value="__new">+ Nueva carpeta…</option>
+          <option value="__new">+ New folder…</option>
         </select>
-        <input name="newFolderName" placeholder="Nombre de la carpeta nueva" maxlength="60" hidden>
+        <input name="newFolderName" placeholder="New folder name" maxlength="60" hidden>
       </div>
       <label class="field">
-        <span>Notas</span>
-        <textarea name="notes" rows="3" placeholder="Cómo fue, con quién, qué recordar…">${esc(values.notes)}</textarea>
+        <span>Notes</span>
+        <textarea name="notes" rows="3" placeholder="How it went, who you went with, what to remember…">${esc(values.notes)}</textarea>
       </label>
       <div class="field">
-        <span>Fotos</span>
+        <span>Photos</span>
         <div class="photo-grid editable" id="dialogPhotos"></div>
       </div>
       <div class="dialog-actions">
-        <button class="btn secondary" value="cancel" formnovalidate>Cancelar</button>
-        <button class="btn primary" value="save">Guardar ruta</button>
+        <button class="btn secondary" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="save">Save route</button>
       </div>
     </form>`;
 
   const form = dialog.querySelector("form");
 
-  // Al elegir "+ Nueva carpeta…" aparece un campo para escribir su nombre
+  // Al elegir "+ New folder…" aparece un campo para escribir su nombre
   const folderSelect = form.querySelector('select[name="folderId"]');
   const newFolderInput = form.querySelector('input[name="newFolderName"]');
   folderSelect.addEventListener("change", () => {
@@ -103,7 +103,7 @@ export function openRouteDialog({ title, fileInfo = null, values, photoIds = [],
   function thumb(url, onRemove) {
     const div = document.createElement("div");
     div.className = "thumb";
-    div.innerHTML = `<img src="${url}" alt=""><button type="button" aria-label="Quitar foto">×</button>`;
+    div.innerHTML = `<img src="${url}" alt=""><button type="button" aria-label="Remove photo">×</button>`;
     div.querySelector("button").addEventListener("click", onRemove);
     return div;
   }

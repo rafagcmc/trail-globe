@@ -28,26 +28,33 @@ const GROUP_BY = {
   PT: null,
 };
 
-// Nombres en español donde Natural Earth no los trae bien
+// Nombres que Natural Earth no trae bien (la app está en inglés)
 const RENAME = {
   ES: {
-    "Canary Is.": "Canarias",
-    Valenciana: "C. Valenciana",
-    "Foral de Navarra": "Navarra",
-    "Islas Baleares": "Baleares",
+    "Canary Is.": "Canary Islands",
+    Valenciana: "Valencia",
+    "Foral de Navarra": "Navarre",
+    "Islas Baleares": "Balearic Islands",
+    Andalucía: "Andalusia",
+    Cataluña: "Catalonia",
+    "País Vasco": "Basque Country",
+    "Castilla y León": "Castile and León",
+    "Castilla-La Mancha": "Castile-La Mancha",
   },
-  GB: { England: "Inglaterra", Scotland: "Escocia", Wales: "Gales", "Northern Ireland": "Irlanda del Norte" },
+  FR: { Bretagne: "Brittany", Corse: "Corsica", "Guyane française": "French Guiana", Normandie: "Normandy" },
+  IT: { Lombardia: "Lombardy", Piemonte: "Piedmont", Toscana: "Tuscany", Sicilia: "Sicily", Sardegna: "Sardinia", "Trentino-Alto Adige": "Trentino-South Tyrol" },
+};
+
+// Nombres de país más cortos o más habituales que los de Natural Earth
+const COUNTRY_NAMES = {
+  "United States of America": "United States",
+  "People's Republic of China": "China",
+  "Republic of the Congo": "Congo",
+  "Democratic Republic of the Congo": "DR Congo",
 };
 
 const CONTINENTS = {
-  Europe: "Europa",
-  Asia: "Asia",
-  Africa: "África",
-  "North America": "América del Norte",
-  "South America": "América del Sur",
-  Oceania: "Oceanía",
-  Antarctica: "Antártida",
-  "Seven seas (open ocean)": "Islas remotas",
+  "Seven seas (open ocean)": "Remote islands",
 };
 
 async function download(name) {
@@ -78,7 +85,7 @@ for (const f of countries.features) {
   const p = f.properties;
   f.properties = {
     iso: p.ISO_A2_EH !== "-99" ? p.ISO_A2_EH : p.ADM0_A3,
-    name: p.NAME_ES || p.NAME,
+    name: COUNTRY_NAMES[p.NAME_EN] ?? (p.NAME_EN || p.NAME),
     continent: CONTINENTS[p.CONTINENT] ?? p.CONTINENT, // para organizar el álbum por continentes
   };
 }
@@ -99,15 +106,15 @@ for (const [iso, features] of Object.entries(byCountry)) {
   const field = GROUP_BY[iso];
   for (const f of features) {
     const p = f.properties;
-    const raw = (field && p[field]) || p.name_es || p.name || "Sin nombre";
+    const raw = (field && p[field]) || p.name_en || p.name || "Unnamed";
     const name = RENAME[iso]?.[raw] ?? raw;
     f.properties = { label: name }; // "label" y no "name": "name" es una palabra reservada de mapshaper
   }
   const fc = { type: "FeatureCollection", features };
   // -dissolve une las provincias que pertenecen a la misma región
   const out = await shape(fc, "-dissolve label -simplify 8% keep-shapes -clean");
-  for (const f of out.features) f.properties = { name: f.properties.label ?? "Sin nombre" };
-  out.features.sort((a, b) => a.properties.name.localeCompare(b.properties.name, "es"));
+  for (const f of out.features) f.properties = { name: f.properties.label ?? "Unnamed" };
+  out.features.sort((a, b) => a.properties.name.localeCompare(b.properties.name, "en"));
   // El id de cada región es "país/nombre": legible y estable entre ejecuciones
   for (const f of out.features) f.properties.id = `${iso}/${f.properties.name}`;
   await writeFile(`${OUT}/regions/${iso}.json`, JSON.stringify(out));

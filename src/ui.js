@@ -42,7 +42,7 @@ export function renderHome(panel, state, handlers) {
 
   panel.innerHTML = `
     <header class="panel-header">
-      <h1>Trail Globe</h1>
+      <h1>Traildex</h1>
       <button class="btn secondary" data-action="add" title="Add a route from a GPX or KML file">Import</button>
       <button class="btn primary rec-cta" data-action="record"><span class="rec-dot"></span>Record</button>
     </header>

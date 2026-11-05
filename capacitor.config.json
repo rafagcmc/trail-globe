@@ -1,6 +1,6 @@
 {
-  "appId": "io.github.rafagcmc.trailglobe",
-  "appName": "Trail Globe",
+  "appId": "io.github.rafagcmc.traildex",
+  "appName": "Traildex",
   "webDir": "dist",
   "android": {
     "useLegacyBridge": true

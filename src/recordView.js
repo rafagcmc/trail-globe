@@ -44,7 +44,7 @@ export function renderRecordStart(panel, { gps, activity }, h) {
           </button>`).join("")}
       </div>
       <div class="rec-gps ${g.cls}"><i></i><span>${esc(g.text)}</span></div>
-      ${gps.error === "denied" ? `<p class="rec-note">Allow location for Trail Globe in ${isNativeApp() ? `the settings (<button class="link" data-action="settings">open settings</button>)` : "the browser settings (the padlock next to the address)"} and try again.</p>` : ""}
+      ${gps.error === "denied" ? `<p class="rec-note">Allow location for Traildex in ${isNativeApp() ? `the settings (<button class="link" data-action="settings">open settings</button>)` : "the browser settings (the padlock next to the address)"} and try again.</p>` : ""}
       <button class="rec-go" data-action="start" ${gps.error ? "disabled" : ""}>
         <span class="rec-dot"></span>Start
       </button>

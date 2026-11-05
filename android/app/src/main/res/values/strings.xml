@@ -1,9 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Trail Globe</string>
-    <string name="title_activity_main">Trail Globe</string>
-    <string name="package_name">io.github.rafagcmc.trailglobe</string>
-    <string name="custom_url_scheme">io.github.rafagcmc.trailglobe</string>
+    <string name="app_name">Traildex</string>
+    <string name="title_activity_main">Traildex</string>
+    <string name="package_name">io.github.rafagcmc.traildex</string>
+    <string name="custom_url_scheme">io.github.rafagcmc.traildex</string>
     <!-- Nombre del canal de la notificación "Recording route" (se ve al mantenerla pulsada) -->
     <string name="capacitor_background_geolocation_notification_channel_name">Route recording</string>
     <string name="capacitor_background_geolocation_notification_color">#E8890C</string>

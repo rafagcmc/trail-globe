@@ -4,7 +4,7 @@ android {
     namespace = "io.github.rafagcmc.trailglobe"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "io.github.rafagcmc.trailglobe"
+        applicationId "io.github.rafagcmc.traildex"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

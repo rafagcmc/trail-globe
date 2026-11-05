@@ -1,12 +1,12 @@
-# Trail Globe
+# Traildex
 
-**A 3D diary of your hikes, bike rides and Camino stages, on an interactive globe.**
+**Your collection of hikes, bike rides and Camino stages, on an interactive 3D globe.**
 
 Import a GPX/KML file or record a route with your phone's GPS, see it on 3D terrain, and fill a collection of countries, regions, cards and achievements as you go.
 
-**[Live demo → trail-globe.vercel.app](https://trail-globe.vercel.app)**. Press *Load sample routes* to see it with 61 routes from 22 countries.
+**[Live demo → traildex.vercel.app](https://traildex.vercel.app)**. Press *Load sample routes* to see it with 61 routes from 22 countries.
 
-![Trail Globe: every route on a 3D globe](docs/screenshots/globe.png)
+![Traildex: every route on a 3D globe](docs/screenshots/globe.png)
 
 <p align="center">
   <img src="docs/screenshots/route.png" width="49%" alt="Route detail with 3D terrain and elevation profile">
